@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.IO;
 using System.Text.RegularExpressions;
 
 namespace CK.Core;
@@ -118,6 +119,21 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
         }
         // Uncommon case.
         if( buildMetaData.Length > 0 ) _normalizedText += '+' + buildMetaData;
+    }
+
+    SVersion( string prefix, SVersion o )
+    {
+        _major = o._major;
+        _minor = o._minor;
+        _patch = o._patch;
+        _fourthPart = o._fourthPart;
+        _prerelease = o._prerelease;
+        _buildMetaData = o._buildMetaData;
+        _csKind = o._csKind;
+        _csPrereleaseNumber = o._csPrereleaseNumber;
+        _ciNumber = o._ciNumber;
+        _parsedPrefix = prefix;
+        _normalizedText = o._normalizedText;
     }
 
     /// <summary>
@@ -276,10 +292,11 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     public string? ParsedVersion => _parsedVersion;
 
     /// <summary>
-    /// Gets the parsed prefix that may appear before the <see cref="ParsedVersion"/>.
+    /// Gets the parsed prefix that may appear before the <see cref="ParsedVersion"/> (without the optional 'v'
+    /// initial of the <see cref="ParsedVersion"/>).
     /// <para>
-    /// It is null if the original parsed string was null or this version has been explicitly created and not parsed.
-    /// When this is not empty, this doesn't contain the optional 'v' initial of the <see cref="ParsedVersion"/>.
+    /// It is null if the original parsed string was null or this version has been explicitly created and not parsed
+    /// (and <see cref="SetParsedPrefix(string)"/> has not been used to set it).
     /// </para>
     /// </summary>
     public string? ParsedPrefix
@@ -434,7 +451,7 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     /// <param name="clearCINumber">
     /// False to keep the current <see cref="CINumber"/>, false to clear it (the returned version is not CI build version).
     /// </param>
-    /// <returns>A new updated SVersion.</returns>
+    /// <returns>This or a new SVersion.</returns>
     public SVersion SetPrereleaseNumber( int number, bool clearCINumber )
     {
         ArgumentOutOfRangeException.ThrowIfNegative( number );
@@ -489,6 +506,33 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
             }
         }
         return new SVersion( null, null, _major, _minor, _patch, newPrerelease, _buildMetaData, _csKind, number, ciNumber );
+    }
+
+    /// <summary>
+    /// Returns a new <see cref="SVersion"/> with the specified <see cref="ParsedPrefix"/>.
+    /// </summary>
+    /// <param name="prefix">The prefix to set.</param>
+    /// <returns>This or a new SVersion.</returns>
+    public SVersion SetParsedPrefix( string prefix )
+    {
+        prefix ??= string.Empty;
+        if( _parsedPrefix == null )
+        {
+            if( _parsedText != null )
+            {
+                Debug.Assert( _parsedVersion != null );
+                int len = _parsedText.Length - _parsedVersion.Length;
+                if( _parsedText.AsSpan( 0, len ).Equals( prefix, StringComparison.Ordinal ) )
+                {
+                    return this;
+                }
+            }
+        }
+        else if( _parsedPrefix == prefix )
+        {
+            return this;
+        }
+        return new SVersion( prefix, this );
     }
 
     /// <summary>
@@ -624,7 +668,7 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
 
     /// <summary>
     /// Standard TryParse pattern that returns a boolean rather than the resulting <see cref="SVersion"/>.
-    /// See <see cref="TryParse(string,bool,bool)"/>.
+    /// See <see cref="ParseNoThrow(string?, bool, bool, bool)"/>.
     /// </summary>
     /// <param name="s">String to parse.</param>
     /// <param name="v">Resulting version.</param>
