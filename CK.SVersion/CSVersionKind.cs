@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Diagnostics;
 
@@ -38,15 +39,17 @@ public enum CSVersionKind
     None = 0,
 
     /// <summary>
-    /// Exploratory versions are short lived zero-based versions of the form "0.0.0--explo".
+    /// Exploratory versions are short lived zero-based versions of the form "0.0.0-0.explo".
     /// No ordering applies among them, they are intended to be used explicitly.
     /// </summary>
     Exploratory = 1,
 
     /// <summary>
-    /// Alpha is the first, weakest, conformant prerealase name. It can be parsed as "-alpha".
+    /// Alpha is the first, weakest, conformant prerelease name.
     /// </summary>
     Alpha = 2,
+
+#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
     Bravo = 3,
     Charlie = 4,
     Delta = 5,
@@ -62,14 +65,19 @@ public enum CSVersionKind
     November = 15,
     Oscar = 16,
     Papa = 17,
+#pragma warning restore CS1591 
+
     /// <summary>
-    /// Quebec is the last conformant prerelease name to be compiled in Debug. It can be parsed as "-quebec".
+    /// Quebec is the last conformant prerelease name to be compiled in Debug.
     /// </summary>
     Quebec = 18,
+
     /// <summary>
-    /// Romeo is the first conformant prerelease name to be compiled in Release. It can be parsed as "-romeo".
+    /// Romeo is the first conformant prerelease name to be compiled in Release.
     /// </summary>
     Romeo = 19,
+
+#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
     Sierra = 20,
     Tango = 21,
     Uniform = 22,
@@ -77,9 +85,10 @@ public enum CSVersionKind
     Whiskey = 24,
     XRay = 25,
     Yankee = 26,
+#pragma warning restore CS1591 
 
     /// <summary>
-    /// Zulu is the last, strongest prerelease before a stable version. It can be parsed as "-zulu".
+    /// Zulu is the last, strongest prerelease before a stable version.
     /// </summary>
     Zulu = 27,
 
@@ -87,7 +96,6 @@ public enum CSVersionKind
     /// Stable version (not a exploratory nor a prerelease): this corresponds to an empty <see cref="SVersion.Prerelease"/>.
     /// </summary>
     Stable = 28
-
 }
 
 /// <summary>
@@ -133,25 +141,43 @@ public static class CSVersionKindExtensions
     /// </summary>
     /// <param name="kind">This kind.</param>
     /// <returns>The prerelease name.</returns>
-    public static string ToPrerelease(this CSVersionKind kind) => _names[(int)kind];
+    public static string ToPrerelease( this CSVersionKind kind ) => _names[(int)kind];
+
+    /// <summary>
+    /// Tries to parse one of the "alpha"..."zulu" <see cref="CSVersionKind"/> names.
+    /// </summary>
+    /// <param name="s">This string to parse.</param>
+    /// <param name="kind">The resulting kind.</param>
+    /// <param name="comparisonType">Comparison type to use.</param>
+    /// <returns>True on success, false on error.</returns>
+    public static bool TryParse( ReadOnlySpan<char> s, out CSVersionKind kind, StringComparison comparisonType = StringComparison.OrdinalIgnoreCase )
+    {
+        kind = CSVersionKind.None;
+        if( TryMatch( ref s, ref kind, comparisonType ) )
+        {
+            if( s.Length == 0 ) return true;
+            kind = CSVersionKind.None;
+        }
+        return false;
+    }
 
     /// <summary>
     /// Tries to match one of the "alpha"..."zulu" <see cref="CSVersionKind"/> names.
-    /// This will be fowarded on success.
+    /// The head is fowarded on success.
     /// </summary>
     /// <param name="head">This head.</param>
-    /// <param name="kind">The resulting kind. unchanged on failure.</param>
+    /// <param name="kind">The resulting kind. Unchanged on failure.</param>
     /// <param name="comparisonType">Comparison type to use.</param>
     /// <returns>True on success, false on error.</returns>
     public static bool TryMatch( ref ReadOnlySpan<char> head, ref CSVersionKind kind, StringComparison comparisonType = StringComparison.OrdinalIgnoreCase )
     {
-        Debug.Assert((int)CSVersionKind.Alpha == 2 && (int)CSVersionKind.Zulu == 27);
-        for (int i = 2; i <= 27; ++i)
+        Debug.Assert( (int)CSVersionKind.Alpha == 2 && (int)CSVersionKind.Zulu == 27 );
+        for( int i = 2; i <= 27; ++i )
         {
             var c = _names[i];
-            if (head.StartsWith(c, comparisonType))
+            if( head.StartsWith( c, comparisonType ) )
             {
-                head = head.Slice(c.Length);
+                head = head.Slice( c.Length );
                 kind = (CSVersionKind)i;
                 return true;
             }

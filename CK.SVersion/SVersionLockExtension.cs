@@ -54,7 +54,6 @@ public static class SVersionLockExtension
     /// <returns>True on success, false otherwise.</returns>
     public static bool TryMatch( ref ReadOnlySpan<char> head, ref SVersionLock l )
     {
-        l = SVersionLock.NoLock;
         if( head.Length == 0 ) return false;
         if( !head.StartsWith( nameof( SVersionLock.Lock ), StringComparison.OrdinalIgnoreCase ) )
         {
@@ -62,13 +61,6 @@ public static class SVersionLockExtension
             {
                 l = SVersionLock.NoLock;
                 head = head.Slice( 6 );
-                return true;
-            }
-            // Allow previous "None" name.
-            if( head.StartsWith( "none", StringComparison.OrdinalIgnoreCase ) )
-            {
-                l = SVersionLock.NoLock;
-                head = head.Slice( 4 );
                 return true;
             }
             return false;

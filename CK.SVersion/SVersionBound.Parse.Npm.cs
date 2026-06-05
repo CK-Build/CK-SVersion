@@ -66,7 +66,7 @@ public readonly partial struct SVersionBound
             bool isApproximated = !includePrerelease;
             if( r.Version.IsPrerelease )
             {
-               allowCI = true;
+                allowCI = true;
                 minPrerelease = "0";
                 if( defaultLock == SVersionLock.LockMinor )
                 {
@@ -107,7 +107,7 @@ public readonly partial struct SVersionBound
             if( s.Length == 0 ) return new ParseResult( "Invalid '<' range" );
             var forget = TryMatchRangeAlone( ref s, SVersionLock.NoLock, includePrerelease ).Result;
             return forget.IsValid
-                    ? new ParseResult( All.SetMinPrerelease( includePrerelease ? "0" : "" ).SetAllowCI( includePrerelease ), true )
+                    ? new ParseResult( new SVersionBound( _000Version, SVersionLock.NoLock, includePrerelease ? "0" : "", includePrerelease ), true )
                     : forget;
         }
         if( TryMatch( ref s, '~' ) )
@@ -236,10 +236,10 @@ public readonly partial struct SVersionBound
     /// </para>
     /// </param>
     /// <returns>The result of the parse that can be invalid.</returns>
-    public static ParseResult NpmTryParse( ReadOnlySpan<char> s, bool includePrerelease = false ) => NpmTryParse( ref s, includePrerelease );
+    public static ParseResult NpmTryParse( ReadOnlySpan<char> s, bool includePrerelease = false ) => NpmTryMatch( ref s, includePrerelease );
 
     /// <inheritdoc cref="NpmTryParse(ReadOnlySpan{char}, bool)"/>>
-    public static ParseResult NpmTryParse( ref ReadOnlySpan<char> s, bool includePrerelease = false )
+    public static ParseResult NpmTryMatch( ref ReadOnlySpan<char> s, bool includePrerelease = false )
     {
         // Parsing syntactically invalid version is not common: we analyze existing stuff that are supposed
         // to have already been parsed.

@@ -1,8 +1,6 @@
 using System;
 using System.Diagnostics;
 
-#if !NETSTANDARD
-
 namespace CK.Core;
 
 public readonly partial struct SVersionBound
@@ -13,15 +11,15 @@ public readonly partial struct SVersionBound
     /// </summary>
     /// <param name="s">The span to parse.</param>
     /// <returns>The result of the parse that can be invalid.</returns>
-    public static ParseResult NugetTryParse( ReadOnlySpan<char> s ) => NugetTryParse( ref s );
+    public static ParseResult NugetTryParse( ReadOnlySpan<char> s ) => NugetTryMatch( ref s );
 
     /// <summary>
-    /// Attempts to parse a nuget version range. See  https://docs.microsoft.com/en-us/nuget/concepts/package-versioning#version-ranges.
+    /// Attempts to match a nuget version range. See  https://docs.microsoft.com/en-us/nuget/concepts/package-versioning#version-ranges.
     /// There is nothing really simple here. Check for instance: https://github.com/NuGet/Home/issues/6434#issuecomment-358782297 
     /// </summary>
     /// <param name="head">The span to parse.</param>
     /// <returns>The result of the parse that can be invalid.</returns>
-    public static ParseResult NugetTryParse( ref ReadOnlySpan<char> head )
+    public static ParseResult NugetTryMatch( ref ReadOnlySpan<char> head )
     {
         // Parsing syntactically invalid version is not common: we analyze existing stuff that are supposed
         // to have already been parsed.
@@ -43,7 +41,7 @@ public readonly partial struct SVersionBound
                 if( !hasComma )
                 {
                     if( head.Length == 0 ) return new ParseResult( "Expected nuget version." );
-                    v1 = TryParseLoosyVersion( ref head );
+                    v1 = TryParseLooseVersion( ref head );
                     if( v1.ErrorMessage != null ) return new ParseResult( v1.ErrorMessage );
                     if( Trim( ref head ).Length > 0 )
                     {
@@ -58,13 +56,13 @@ public readonly partial struct SVersionBound
                     {
                         return new ParseResult( "Invalid singled version range. Must only be '[version]'." );
                     }
-                    return new ParseResult( new SVersionBound( v1, SVersionLock.Lock ), false );
+                    return new ParseResult( new SVersionBound( v1, SVersionLock.Lock, "", false ), false );
                 }
                 Debug.Assert( hasComma || v1 == null );
                 endInclusive = TryMatch( ref head, ']' );
                 if( !endInclusive && !TryMatch( ref head, ')' ) )
                 {
-                    v2 = TryParseLoosyVersion( ref head );
+                    v2 = TryParseLooseVersion( ref head );
                     if( v2.ErrorMessage != null ) return new ParseResult( v2.ErrorMessage );
                     if( Trim( ref head ).Length == 0
                         || (!(endInclusive = TryMatch( ref head, ']' )) && !TryMatch( ref head, ')' )) )
@@ -136,18 +134,18 @@ public readonly partial struct SVersionBound
         Debug.Assert( s.Length > 0 );
         if( SVersion.TryMatch( ref s, out var v, checkBuildMetaDataSyntax: false, allowPrefix: false ) )
         {
-            return new ParseResult(new SVersionBound(v), false);
+            return new ParseResult( new SVersionBound( v ), false );
         }
         // The version is NOT a valid SVersion: there may be wildcards or a "shorten" version (like "1" or "1.2").
         // In NuGet, "1.0" is not the same as "1.0.*":
         //  - 1.0 => 1.0.0 (Minimum version, inclusive)
         //  - 1.0.* => 1.1.0[LockMinor,Stable]
-        //  - 1.0.*-* => 1.1.0[LockMinor,CI]
+        //  - 1.0.*-* => 1.1.0[LockMinor,AllowCI]
         // We allow 'x' or '*' for the wildcard (even if 'x' won't appear in a NuGet version range). 
         if( !TryMatchXStarInt( ref s, out var major ) )
         {
-            // No major nor wildcard. This is definitly invalid.
-            return new ParseResult( v?.ErrorMessage ?? "Pattern not matched.");
+            // No major nor wildcard. This is definitely invalid.
+            return new ParseResult( v?.ErrorMessage ?? "Pattern not matched." );
         }
         if( major == -1 )
         {
@@ -162,7 +160,7 @@ public readonly partial struct SVersionBound
                 return new ParseResult( SVersionBound.All, false );
             }
             // "*" alone implies only Stable versions.
-            return new ParseResult( SVersionBound.All.SetMinPrerelease( "" ).SetAllowCI( false ), false );
+            return new ParseResult( new SVersionBound( _000Version, SVersionLock.NoLock, "", false ), false );
         }
         Debug.Assert( major >= 0 );
         bool expectNextPart = TryMatch( ref s, '.' );
@@ -181,7 +179,7 @@ public readonly partial struct SVersionBound
             var skip = TryMatch( ref s, '.' )
                        && TryMatchXStarInt( ref s, out var _ );
 
-            if (TryMatch(ref s, '-') && TryMatch(ref s, '*'))
+            if( TryMatch( ref s, '-' ) && TryMatch( ref s, '*' ) )
             {
                 allowCI = true;
                 minPrerelease = "0";
@@ -203,7 +201,7 @@ public readonly partial struct SVersionBound
         }
         if( (hasNextPart = TryMatchXStarInt( ref s, out var patch )) && patch == -1 )
         {
-            if (TryMatch(ref s, '-') && TryMatch(ref s, '*'))
+            if( TryMatch( ref s, '-' ) && TryMatch( ref s, '*' ) )
             {
                 allowCI = true;
                 minPrerelease = "0";
@@ -227,10 +225,10 @@ public readonly partial struct SVersionBound
         return new ParseResult( v?.ErrorMessage ?? "Pattern not matched." );
     }
 
-    static SVersion TryParseLoosyVersion( ref ReadOnlySpan<char> s )
+    static SVersion TryParseLooseVersion( ref ReadOnlySpan<char> s )
     {
         Debug.Assert( s.Length > 0 );
-        if( !SVersion.TryMatch(ref s, out var v, checkBuildMetaDataSyntax: false, allowPrefix: false))
+        if( !SVersion.TryMatch( ref s, out var v, checkBuildMetaDataSyntax: false, allowPrefix: false ) )
         {
             if( TryMatchNonNegativeInt( ref s, out int major ) )
             {
@@ -248,9 +246,8 @@ public readonly partial struct SVersionBound
                 return SVersion.Create( major, minor, patch );
             }
         }
-        return v;
+        return v ?? new SVersion( "Expected Nuget major part.", null );
     }
 
 }
 
-#endif
