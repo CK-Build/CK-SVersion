@@ -32,9 +32,8 @@ public readonly partial struct SVersionBound
             goto error;
         }
         SVersionLock versionLock = SVersionLock.NoLock;
-        CSVersionKind csPrerelease = CSVersionKind.None;
         string? minPrerelease = null;
-        bool allowCI = true;
+        bool allowCI = false;
 
         if( head.Length > 0 && head[0] == '[' )
         {
@@ -43,9 +42,9 @@ public readonly partial struct SVersionBound
             while( head[0] != ']' )
             {
                 if( SVersionLockExtension.TryMatch( ref head, ref versionLock )
-                    || CSVersionKindExtensions.TryMatch( ref head, ref csPrerelease )
-                    || (TryMatch( ref head, "NoCI" ) && !(allowCI = false))
-                    || TryMatchQuoted( ref head, ref minPrerelease ) )
+                    || (TryMatch( ref head, "Stable" ) && (minPrerelease = "") != null)
+                    || TryMatchMinPrerelease( ref head, ref minPrerelease )
+                    || (TryMatch( ref head, "AllowCI" ) && (allowCI = true)) )
                 {
                     Trim( ref head );
                     if( head.Length > 0 && head[0] == ',' ) head = head.Slice( 1 );
@@ -55,8 +54,7 @@ public readonly partial struct SVersionBound
                 else goto error;
             }
         }
-        minPrerelease ??= csPrerelease != CSVersionKind.None ? csPrerelease.ToPrerelease() : "0";
-        bound = new SVersionBound( baseVersion, versionLock, minPrerelease, allowCI );
+        bound = new SVersionBound( baseVersion, versionLock, minPrerelease ?? "0", allowCI );
         return true;
 
         error:
@@ -64,16 +62,18 @@ public readonly partial struct SVersionBound
         head = sHead;
         return false;
 
-        static bool TryMatchQuoted( ref ReadOnlySpan<char> head, ref string? v )
+        static bool TryMatchMinPrerelease( ref ReadOnlySpan<char> head, ref string? v )
         {
-            if( head.Length == 0 || head[0] != '\'' ) return false;
-            var h = head.Slice( 1 );
-            int iEnd = head.IndexOf( '\'' );
+            if( head.Length < 3 || head[0] != '>' || head[1] != '=' ) return false;
+            var h = head.Slice( 2 );
+            Trim( ref h );
+            int iEnd = h.IndexOfAny( ',', ']' );
             if( iEnd <= 0 ) return false;
-            var candidate = new string( head.Slice( 0, iEnd ) );
-            if( SVersion.ValidateDottedIdentifiers( candidate, "pre-release", out _ ) == null )
+            var name = h.Slice( 0, iEnd ).TrimEnd();
+            if( SVersion.ValidateDottedIdentifiers( name, "pre-release" ) == null )
             {
-                v = candidate;
+                v = new string( name );
+                head = h.Slice( iEnd );
                 return true;
             }
             return false;

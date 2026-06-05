@@ -28,6 +28,7 @@ namespace CK.Core;
 /// methods: they return a <see cref="ParseResult"/> that can be invalid or <see cref="ParseResult.IsApproximated"/>.
 /// </para>
 /// </summary>
+[DebuggerDisplay( "{ToString(),nq}" )]
 public readonly partial struct SVersionBound : IEquatable<SVersionBound>
 {
     static readonly SVersion _000Version = SVersion.Create( 0, 0, 0 );
@@ -35,7 +36,7 @@ public readonly partial struct SVersionBound : IEquatable<SVersionBound>
     readonly SVersion? _base;
     readonly string? _minPrerelease;
     readonly SVersionLock _lock;
-    readonly bool _disallowCI;
+    readonly bool _noCI;
 
     /// <summary>
     /// "All" bound allows any <see cref="SVersion"/> (no restriction): 
@@ -92,7 +93,7 @@ public readonly partial struct SVersionBound : IEquatable<SVersionBound>
     /// Gets whether CI versions are accepted.
     /// Defaults to true.
     /// </summary>
-    public bool AllowCI => !_disallowCI;
+    public bool AllowCI => !_noCI;
 
     /// <summary>
     /// Initializes a new version bound on a valid <see cref="Base"/> version.
@@ -117,7 +118,7 @@ public readonly partial struct SVersionBound : IEquatable<SVersionBound>
             _base = version;
         }
         // Handle "stable" only constraint and normalize MinPrerelease.
-        if( minPrerelease == "" )
+        if( minPrerelease.Length == 0 )
         {
             // LockPatch on Stable is Lock.
             if( @lock == SVersionLock.LockPatch )
@@ -128,10 +129,10 @@ public readonly partial struct SVersionBound : IEquatable<SVersionBound>
         }
         else
         {
-            _minPrerelease = minPrerelease.ToLowerInvariant();
+            _minPrerelease = minPrerelease;
         }
         _lock = @lock;
-        _disallowCI = !allowCI;
+        _noCI = !allowCI;
     }
 
     /// <summary>
@@ -139,7 +140,7 @@ public readonly partial struct SVersionBound : IEquatable<SVersionBound>
     /// </summary>
     /// <param name="r">The lock to set.</param>
     /// <returns>This or a version bound.</returns>
-    public SVersionBound SetLock( SVersionLock r ) => r != _lock ? new SVersionBound( _base, r, MinPrerelease, !_disallowCI ) : this;
+    public SVersionBound SetLock( SVersionLock r ) => r != _lock ? new SVersionBound( _base, r, MinPrerelease, !_noCI ) : this;
 
     /// <summary>
     /// Sets a minimal prerelease name by returning this or a new <see cref="SVersionBound"/>.
@@ -154,7 +155,7 @@ public readonly partial struct SVersionBound : IEquatable<SVersionBound>
         var p = prerelease.ToLowerInvariant();
         return p == _minPrerelease
                 ? this
-                : new SVersionBound( _base, _lock, p, !_disallowCI );
+                : new SVersionBound( _base, _lock, p, !_noCI );
     }
 
     /// <summary>
@@ -164,9 +165,9 @@ public readonly partial struct SVersionBound : IEquatable<SVersionBound>
     /// <returns>This or a new version bound.</returns>
     public SVersionBound SetAllowCI( bool allowCI )
     {
-        return _disallowCI == !allowCI
+        return _noCI == !allowCI
                 ? this
-                : new SVersionBound( _base, _lock, MinPrerelease, !allowCI );
+                : new SVersionBound( _base, _lock, MinPrerelease, allowCI );
     }
 
     static string UnionPrerelease( string? p1, string? p2 )
@@ -225,7 +226,7 @@ public readonly partial struct SVersionBound : IEquatable<SVersionBound>
         if( _base == null ) return true;
         // Applies allowCI before base comparison: if AllowCI is false, a CI version must be rejected, even if
         // base is a CI version. 
-        if( _disallowCI && v.IsCI )
+        if( _noCI && v.IsCI )
         {
             return false;
         }
@@ -241,15 +242,20 @@ public readonly partial struct SVersionBound : IEquatable<SVersionBound>
         if( cmp == 0 ) return true;
         // Is the greater v "reachable"?
         Debug.Assert( v.IsValid, "Since v is greater than this Base and this Base is valid." );
-        switch( _lock )
+        return SatisfyVersionLock( _base, _lock, v );
+    }
+
+    static bool SatisfyVersionLock( SVersion baseVersion, SVersionLock l, SVersion v )
+    {
+        switch( l )
         {
-            case SVersionLock.Lock: return false;
+            case SVersionLock.Lock:
             case SVersionLock.LockPatch:
-                if( v.Major != _base.Major || v.Minor != _base.Minor || v.Patch != _base.Patch ) return false; break;
+                if( v.Major != baseVersion.Major || v.Minor != baseVersion.Minor || v.Patch != baseVersion.Patch ) return false; break;
             case SVersionLock.LockMinor:
-                if( v.Major != _base.Major || v.Minor != _base.Minor ) return false; break;
+                if( v.Major != baseVersion.Major || v.Minor != baseVersion.Minor ) return false; break;
             case SVersionLock.LockMajor:
-                if( v.Major != _base.Major ) return false; break;
+                if( v.Major != baseVersion.Major ) return false; break;
         }
         return true;
     }
@@ -285,17 +291,16 @@ public readonly partial struct SVersionBound : IEquatable<SVersionBound>
         // versions that this one disallows).
         if( _lock > other._lock ) return false;
         // If the other.Base version is smaller, it's over.
-        if( other.Base < Base ) return false;
-
-        // When the other Lock is stronger than this one, since the other.Base satisfies this Base,
-        // the other cannot be more restrictive than this... I know it may not be obvious, but it's true.
-        // To "see" this consider that Base versions "starts" with the "locked" part and "ends free". The
-        // exclamation point expresses this:
-        //  - This: 1!.0.0-beta (LockMajor) 
-        //  - Other: 1.0.0!-rc (LockPatch)
-        // If we are here, then the prefix of the other.Base satisfies this bound: any stronger locks
-        // don't change the prefix.
-        return true;
+        var thisBase = Base;
+        var otherBase = other.Base;
+        if( thisBase > otherBase )
+        {
+            // This is not PERFECTLY right!
+            return false;
+        }
+        // Because we chose to not alter the base version (to make it fit the prerelease & CI constraint),
+        // we must test our lock against the other base version.
+        return SatisfyVersionLock( thisBase, _lock, otherBase );
     }
 
     /// <summary>
@@ -306,7 +311,7 @@ public readonly partial struct SVersionBound : IEquatable<SVersionBound>
     public bool Equals( SVersionBound other ) => Base == other.Base
                                                  && MinPrerelease == other.MinPrerelease
                                                  && _lock == other._lock
-                                                 && _disallowCI == other._disallowCI;
+                                                 && _noCI == other._noCI;
 
     /// <summary>
     /// Equality is based on <see cref="Base"/>, <see cref="Lock"/>, <see cref="MinPrerelease"/> and <see cref="AllowCI"/>.
@@ -319,7 +324,7 @@ public readonly partial struct SVersionBound : IEquatable<SVersionBound>
     /// Equality is based on <see cref="Base"/>, <see cref="Lock"/>, <see cref="MinPrerelease"/> and <see cref="AllowCI"/>.
     /// </summary>
     /// <returns>The hash code.</returns>
-    public override int GetHashCode() => HashCode.Combine( Base, _lock, MinPrerelease, _disallowCI );
+    public override int GetHashCode() => HashCode.Combine( Base, _lock, MinPrerelease, _noCI );
 
     /// <summary>
     /// Support == operator.
@@ -357,7 +362,7 @@ public readonly partial struct SVersionBound : IEquatable<SVersionBound>
     /// <returns>A readable string.</returns>
     public override string ToString()
     {
-        if( _lock == SVersionLock.NoLock && _minPrerelease is null or "0" && !_disallowCI )
+        if( _lock == SVersionLock.NoLock && _minPrerelease is null or "0" && _noCI )
         {
             return Base.ToString();
         }
@@ -386,22 +391,14 @@ public readonly partial struct SVersionBound : IEquatable<SVersionBound>
             }
             else
             {
-                var csKind = CSVersionKind.None;
-                if( CSVersionKindExtensions.TryMatch( ref head, ref csKind ) && head.Length == 0 )
-                {
-                    b.Append( csKind.ToString() );
-                }
-                else
-                {
-                    b.Append( '\'' ).Append( _minPrerelease ).Append( '\'' );
-                }
+                b.Append( ">=" ).Append( head );
             }
             hasPart = true;
         }
-        if( _disallowCI )
+        if( !_noCI )
         {
             if( hasPart ) b.Append( ',' );
-            b.Append( "NoCI" );
+            b.Append( "AllowCI" );
         }
         b.Append( ']' );
         return b.ToString();
@@ -417,15 +414,15 @@ public readonly partial struct SVersionBound : IEquatable<SVersionBound>
     ///     <item><see cref="SVersionLock.Lock"/> is expressed in brackets: [5.1.2].</item>
     ///     <item>
     ///     <see cref="SVersionLock.LockMajor"/> is "5.*" when <see cref="MinPrerelease"/> is empty
-    ///     and "5.*-*" for all other qualities.
+    ///     and "5.*-*" for all other prerelease or if CI is allowed.
     ///     </item>
     ///     <item>
     ///     <see cref="SVersionLock.LockMinor"/> is "5.3.*" when <see cref="MinPrerelease"/> is empty
-    ///     and "5.3.*-*" for all other qualities.
+    ///     and "5.3.*-*" for all other prerelease or if CI is allowed.
     ///     </item>
     ///     <item>
     ///     <see cref="SVersionLock.LockPatch"/> is "5.3.1-*" because LockPatch can only be not stable
-    ///     (the [LockPatch,Stable] combination is normalized as [Lock]).
+    ///     (the [LockPatch,Stable] combination is normalized as [Lock,Stable]).
     ///     </item>
     ///     <item>
     ///     The "0.0.0" version when Stable is expressed as "*".
