@@ -160,8 +160,6 @@ public partial class InformationalVersion
     /// <summary>
     /// Gets the parsed <see cref="RawVersion"/> (that may be not <see cref="SVersion.IsValid"/>) 
     /// or null if the <see cref="OriginalInformationalVersion"/> attribute was not standard.
-    /// Note that it is the <see cref="CSVersion.ToNormalizedForm()"/> if the version happens to be a <see cref="CSVersion"/>:
-    /// long forms will be transformed into short forms.
     /// </summary>
     public SVersion? Version { get; }
 

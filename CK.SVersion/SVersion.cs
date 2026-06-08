@@ -133,6 +133,10 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
         _csPrereleaseNumber = o._csPrereleaseNumber;
         _ciNumber = o._ciNumber;
         _parsedPrefix = prefix;
+        if( (_parsedVersion = o._parsedVersion) != null )
+        {
+            _parsedText = prefix + _parsedVersion;
+        }
         _normalizedText = o._normalizedText;
     }
 
@@ -1042,6 +1046,7 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
                Prerelease == other.Prerelease;
     }
 
+#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
     public static bool operator ==( SVersion? left, SVersion? right ) => left is null ? right is null : left.Equals( right );
 
     public static bool operator !=( SVersion? left, SVersion? right ) => !(left == right);
@@ -1053,6 +1058,7 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     public static bool operator >( SVersion? left, SVersion? right ) => left is not null && left.CompareTo( right ) > 0;
 
     public static bool operator >=( SVersion? left, SVersion? right ) => left is null ? right is null : left.CompareTo( right ) >= 0;
+#pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
 
     // This checks a SVersion (no initial ^ to handle the potential ParsedPrefix).
     // This is not enough to guaranty that the version is valid.

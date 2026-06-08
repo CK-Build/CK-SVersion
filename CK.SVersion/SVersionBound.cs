@@ -7,11 +7,7 @@ using System.Xml.Resolvers;
 namespace CK.Core;
 
 /// <summary>
-/// Immutable <see cref="Base"/> valid version that is the inclusive minimum acceptable <see cref="PackageQuality"/>
-/// and an optional <see cref="Lock"/> to the Base's components.
-/// <para>
-/// This aims to define a sensible response to one of the dependency management issue: how to specify "version ranges".
-/// </para>
+/// Aims to define a sensible response to one of the dependency management issue: how to specify "version ranges".
 /// <para>
 /// The <see cref="Union(in SVersionBound)"/> binary operation defines a partial order (materialized by <see cref="Contains"/>)
 /// on the set of all possible bounds: <see cref="None"/> is the identity element (and the greatest element of the whole set)
@@ -20,7 +16,7 @@ namespace CK.Core;
 /// </para>
 /// <para>
 /// The text format (<see cref="ToString"/> method) is the "Base" version that may be followed by <see cref="Lock"/>, <see cref="MinPrerelease"/> 
-/// and/or <see cref="AllowCI"/> specifications enclosed in angle brackets. <see cref="TryParse(ReadOnlySpan{char}, out CSemVer.SVersionBound)"/>
+/// and/or <see cref="AllowCI"/> specifications enclosed in angle brackets. <see cref="TryParse(ReadOnlySpan{char}, out SVersionBound)"/>
 /// methods parse them back.
 /// </para>
 /// <para>
@@ -62,7 +58,7 @@ public readonly partial struct SVersionBound : IEquatable<SVersionBound>
     ///     <item><term>MinPrerelease</term><description>is "" - only accepts stable versions.</description></item>
     ///     <item><term>AllowCI</term><description>is false.</description></item>
     /// </list>
-    /// <see cref="Satisfy(in SVersion, bool)"/> is true only for the last version (that is unfortunate but is acceptable as 
+    /// <see cref="Satisfy(in SVersion)"/> is true only for the last version (that is unfortunate but is acceptable as 
     /// the LastVersion is more theoretical than actual).
     /// <para>
     /// This bound is the identity element of the <see cref="Union(in SVersionBound)"/> operation and the absorbing element 
@@ -148,7 +144,7 @@ public readonly partial struct SVersionBound : IEquatable<SVersionBound>
     /// The weakest prerelease is "0", the strongest is the empty string "" (stable versions).
     /// </para>
     /// </summary>
-    /// <param name="min">The minimal prerelease to set.</param>
+    /// <param name="prerelease">The minimal prerelease to set.</param>
     /// <returns>This or a new version bound.</returns>
     public SVersionBound SetMinPrerelease( string prerelease )
     {
