@@ -15,19 +15,25 @@ namespace CK.Core;
 ///     official https://www.nuget.org/ that is more restrictive).
 ///     </description>
 ///     </item>
-///     <item>[romeo,]<term></term>
+///     <item>[papa,]<term></term>
 ///     <description>
-///     Any "romeo" version and above including stable ones but not their CI builds (Min = "romeo", IncludeMin = true,
+///     Any "papa" version and above including stable ones but not their CI builds (Min = "papa", IncludeMin = true,
 ///     Max = null, IncludeMax = true, AllowCI = false).
 ///     This is the regular configuration for the official https://www.nuget.org/ feed (it cannot handle package version
 ///     with the "--ci" double dash prerelease name and we don't want to pollute this open feed with really unstable versions).
 ///     </description>
 ///     </item>
-///     <item><c>[,romeo),AllowCI</c><term></term>
+///     <item><c>[,papa),AllowCI</c><term></term>
 ///     <description>
-///     Any prerelease up to "romeo" (but excluding it) with their CI builds (Min = null, Max = "romeo", IncludeMax = false, AllowCI = true).
+///     Any prerelease up to "papa" (but excluding it) with their CI builds (Min = null, Max = "papa", IncludeMax = false, AllowCI = true).
 ///     This is a possible configuration for a feed that complements the official https://www.nuget.org/ feed
 ///     (versions are on one or the other feed, not on both).
+///     </description>
+///     </item>
+///     <item><c>[,alpha),AllowCI</c><term></term>
+///     <description>
+///     Accepts version below alpha and their CI builds: this is the configuration of a pure "Exploratory" feed (that contains
+///     only <see cref="CSVersionKind.Exploratory"/> versions).
 ///     </description>
 ///     </item>
 /// </list>

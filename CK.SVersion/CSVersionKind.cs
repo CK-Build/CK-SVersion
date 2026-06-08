@@ -30,6 +30,7 @@ namespace CK.Core;
 ///         They are always compiled in Debug configuration.
 ///     </item>
 /// </list>
+/// These levels correspond to an increasing "quality".
 /// </summary>
 public enum CSVersionKind
 {
@@ -46,6 +47,11 @@ public enum CSVersionKind
 
     /// <summary>
     /// Alpha is the first, weakest, conformant prerelease name.
+    /// <para>
+    /// It should be compiled in Debug and should bot be distributed on the "release channel"
+    /// (where stable versions go) but on "preview channels" that distribute <see cref="SVersion.IsCI"/>, <see cref="Exploratory"/>
+    /// and any other releases up to <see cref="Papa"/>.
+    /// </para>
     /// </summary>
     Alpha = 2,
 
@@ -64,16 +70,22 @@ public enum CSVersionKind
     Mike = 14,
     November = 15,
     Oscar = 16,
-    Papa = 17,
-#pragma warning restore CS1591 
+#pragma warning restore CS1591
 
     /// <summary>
-    /// Quebec is the last conformant prerelease name to be compiled in Debug.
+    /// Papa is the first recommended "official Prerelease" or "Preview" quality level.
+    /// It should use "Debug" configuration (like <see cref="Quebec"/>) but should be
+    /// delivered to "release channels" (the channels of the stable versions).
+    /// </summary>
+    Papa = 17,
+
+    /// <summary>
+    /// Quebec is the last conformant prerelease name that should be compiled in Debug.
     /// </summary>
     Quebec = 18,
 
     /// <summary>
-    /// Romeo is the first conformant prerelease name to be compiled in Release.
+    /// Romeo is the first conformant prerelease name that should be compiled in Release.
     /// </summary>
     Romeo = 19,
 
