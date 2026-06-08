@@ -1070,4 +1070,3 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     [GeneratedRegex( @"^(?<1>0|[1-9][0-9]*|[0-9A-Za-z\-]+)(\.(?<1>0|[1-9][0-9]*|[0-9A-Za-z\-]+))*$", RegexOptions.ExplicitCapture | RegexOptions.CultureInvariant )]
     private static partial Regex DottedPartRegEx();
 }
-

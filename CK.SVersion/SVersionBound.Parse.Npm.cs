@@ -18,7 +18,7 @@ public readonly partial struct SVersionBound
         {
             if( major >= 0 )
             {
-                if( TryMatch( ref s, '.' ) )
+                if( s.TryMatch( '.' ) )
                 {
                     if( !TryMatchXStarInt( ref s, out minor ) )
                     {
@@ -27,7 +27,7 @@ public readonly partial struct SVersionBound
                     if( minor >= 0 )
                     {
                         // If a fourth part caused the version parse to fail, handle it here.
-                        if( TryMatch( ref s, '.' ) && TryMatchNonNegativeInt( ref s, out int patch ) )
+                        if( s.TryMatch( '.' ) && TryMatchNonNegativeInt( ref s, out int patch ) )
                         {
                             return (SVersion.Create( major, minor, patch ), 0, 0, null);
                         }
@@ -89,16 +89,16 @@ public readonly partial struct SVersionBound
             return NpmVersionBoundAll( includePrerelease );
         }
 
-        if( TryMatch( ref s, '>' ) )
+        if( s.TryMatch( '>' ) )
         {
-            bool isApproximated = !TryMatch( ref s, '=' );
+            bool isApproximated = !s.TryMatch( '=' );
             return TryMatchRangeAlone( ref Trim( ref s ), SVersionLock.NoLock, includePrerelease ).Result.EnsureIsApproximated( isApproximated );
         }
-        if( TryMatch( ref s, '<' ) )
+        if( s.TryMatch( '<' ) )
         {
             // We don't handle really '<'...
             // We allow the all versions with a lock when possible.
-            if( TryMatch( ref s, '=' ) )
+            if( s.TryMatch( '=' ) )
             {
                 return TryMatchRangeAlone( ref Trim( ref s ), SVersionLock.Lock, includePrerelease ).Result.EnsureIsApproximated( true );
             }
@@ -110,11 +110,11 @@ public readonly partial struct SVersionBound
                     ? new ParseResult( new SVersionBound( _000Version, SVersionLock.NoLock, includePrerelease ? "0" : "", includePrerelease ), true )
                     : forget;
         }
-        if( TryMatch( ref s, '~' ) )
+        if( s.TryMatch( '~' ) )
         {
             return TryMatchRangeAlone( ref Trim( ref s ), SVersionLock.LockMinor, includePrerelease ).Result;
         }
-        if( TryMatch( ref s, '^' ) )
+        if( s.TryMatch( '^' ) )
         {
             var (result, isFloatingMinor) = TryMatchRangeAlone( ref Trim( ref s ), SVersionLock.LockMajor, includePrerelease );
             if( result.Error == null )
@@ -147,7 +147,7 @@ public readonly partial struct SVersionBound
             return result;
         }
         // '=' prefix is optional.
-        if( TryMatch( ref s, '=' ) ) Trim( ref s );
+        if( s.TryMatch( '=' ) ) Trim( ref s );
         return TryMatchRangeAlone( ref s, SVersionLock.Lock, includePrerelease ).Result;
     }
 
@@ -162,7 +162,7 @@ public readonly partial struct SVersionBound
     {
         var r = TryMatchHeadRange( ref s, includePrerelease );
         if( r.Error != null || Trim( ref s ).Length == 0 ) return r;
-        if( TryMatch( ref s, '-' ) )
+        if( s.TryMatch( '-' ) )
         {
             // https://semver.npmjs.com/ forbids this "1.0.0 -2": there must be a space after the dash.
             // Here, we don't care: we skip any whitespace.
@@ -251,9 +251,9 @@ public readonly partial struct SVersionBound
             if( r.Error != null || Trim( ref s ).Length == 0 ) return r;
             while( r.Error == null
                     && Trim( ref s ).Length > 0
-                    && TryMatch( ref s, '|' ) )
+                    && s.TryMatch( '|' ) )
             {
-                if( !TryMatch( ref s, '|' ) ) return new ParseResult( "Expecting '||': '|' alone is invalid." );
+                if( !s.TryMatch( '|' ) ) return new ParseResult( "Expecting '||': '|' alone is invalid." );
                 r = r.Union( TryMatchSet( ref Trim( ref s ), includePrerelease ) );
             }
             return r;

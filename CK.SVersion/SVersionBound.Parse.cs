@@ -218,16 +218,6 @@ public readonly partial struct SVersionBound
 
     static ref ReadOnlySpan<char> Trim( ref ReadOnlySpan<char> s ) { s = s.TrimStart(); return ref s; }
 
-    static bool TryMatch( ref ReadOnlySpan<char> s, char c )
-    {
-        if( s.Length > 0 && s[0] == c )
-        {
-            s = s.Slice( 1 );
-            return true;
-        }
-        return false;
-    }
-
     static bool TryMatchNonNegativeInt( ref ReadOnlySpan<char> s, out int i )
     {
         i = 0;
@@ -252,4 +242,3 @@ public readonly partial struct SVersionBound
 
 
 }
-

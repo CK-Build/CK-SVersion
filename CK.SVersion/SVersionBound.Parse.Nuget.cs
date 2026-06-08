@@ -28,8 +28,8 @@ public readonly partial struct SVersionBound
         try
         {
             if( Trim( ref head ).Length == 0 ) return new ParseResult( "Version range expected." );
-            bool begExclusive = TryMatch( ref head, '(' );
-            bool begInclusive = !begExclusive && TryMatch( ref head, '[' );
+            bool begExclusive = head.TryMatch( '(' );
+            bool begInclusive = !begExclusive && head.TryMatch( '[' );
             if( begInclusive || begExclusive )
             {
                 SVersion? v1 = null;
@@ -37,7 +37,7 @@ public readonly partial struct SVersionBound
                 bool endInclusive;
 
                 if( Trim( ref head ).Length == 0 ) return new ParseResult( "Expected comma or version." );
-                bool hasComma = TryMatch( ref head, ',' );
+                bool hasComma = head.TryMatch(',');
                 if( !hasComma )
                 {
                     if( head.Length == 0 ) return new ParseResult( "Expected nuget version." );
@@ -45,27 +45,27 @@ public readonly partial struct SVersionBound
                     if( v1.ErrorMessage != null ) return new ParseResult( v1.ErrorMessage );
                     if( Trim( ref head ).Length > 0 )
                     {
-                        hasComma = TryMatch( ref head, ',' );
+                        hasComma = head.TryMatch(',');
                     }
                 }
                 if( Trim( ref head ).Length == 0 ) return new ParseResult( "Unclosed nuget version range." );
 
                 if( !hasComma && v1 != null )
                 {
-                    if( !begInclusive || !TryMatch( ref head, ']' ) )
+                    if( !begInclusive || !head.TryMatch(']') )
                     {
                         return new ParseResult( "Invalid singled version range. Must only be '[version]'." );
                     }
                     return new ParseResult( new SVersionBound( v1, SVersionLock.Lock, "", false ), false );
                 }
                 Debug.Assert( hasComma || v1 == null );
-                endInclusive = TryMatch( ref head, ']' );
-                if( !endInclusive && !TryMatch( ref head, ')' ) )
+                endInclusive = head.TryMatch(']');
+                if( !endInclusive && !head.TryMatch(')') )
                 {
                     v2 = TryParseLooseVersion( ref head );
                     if( v2.ErrorMessage != null ) return new ParseResult( v2.ErrorMessage );
                     if( Trim( ref head ).Length == 0
-                        || (!(endInclusive = TryMatch( ref head, ']' )) && !TryMatch( ref head, ')' )) )
+                        || (!(endInclusive = head.TryMatch(']')) && !head.TryMatch(')')) )
                     {
                         return new ParseResult( "Unclosed nuget version range." );
                     }
@@ -150,12 +150,12 @@ public readonly partial struct SVersionBound
         if( major == -1 )
         {
             // Skips ".minor.patch" if any.
-            var skip = TryMatch( ref s, '.' )
+            var skip = s.TryMatch('.')
                         && TryMatchXStarInt( ref s, out var _ )
-                        && TryMatch( ref s, '.' )
+                        && s.TryMatch('.')
                         && TryMatchXStarInt( ref s, out var _ );
             // "*-*" is all versions. 
-            if( TryMatch( ref s, '-' ) && TryMatch( ref s, '*' ) )
+            if( s.TryMatch('-') && s.TryMatch('*') )
             {
                 return new ParseResult( SVersionBound.All, false );
             }
@@ -163,7 +163,7 @@ public readonly partial struct SVersionBound
             return new ParseResult( new SVersionBound( _000Version, SVersionLock.NoLock, "", false ), false );
         }
         Debug.Assert( major >= 0 );
-        bool expectNextPart = TryMatch( ref s, '.' );
+        bool expectNextPart = s.TryMatch('.');
         if( !expectNextPart )
         {
             // "Major" only: (Minimum version, inclusive)
@@ -176,10 +176,10 @@ public readonly partial struct SVersionBound
         if( ((hasNextPart = TryMatchXStarInt( ref s, out var minor )) && minor == -1) )
         {
             // Skips any ".patch".
-            var skip = TryMatch( ref s, '.' )
+            var skip = s.TryMatch('.')
                        && TryMatchXStarInt( ref s, out var _ );
 
-            if( TryMatch( ref s, '-' ) && TryMatch( ref s, '*' ) )
+            if( s.TryMatch('-') && s.TryMatch('*') )
             {
                 allowCI = true;
                 minPrerelease = "0";
@@ -192,7 +192,7 @@ public readonly partial struct SVersionBound
             return new ParseResult( "Missing expected Minor." );
         }
         Debug.Assert( major >= 0 && minor >= 0 );
-        expectNextPart = TryMatch( ref s, '.' );
+        expectNextPart = s.TryMatch('.');
         if( !expectNextPart )
         {
             // "Major.Minor" only: (Minimum version, inclusive)
@@ -201,7 +201,7 @@ public readonly partial struct SVersionBound
         }
         if( (hasNextPart = TryMatchXStarInt( ref s, out var patch )) && patch == -1 )
         {
-            if( TryMatch( ref s, '-' ) && TryMatch( ref s, '*' ) )
+            if( s.TryMatch('-') && s.TryMatch('*') )
             {
                 allowCI = true;
                 minPrerelease = "0";
@@ -217,7 +217,7 @@ public readonly partial struct SVersionBound
         // We have a Major.Minor.Patch here but it has failed to be parsed.
         // The single possibility to be valid is the "-*" pattern:
         // this is a [LockPatch].
-        if( TryMatch( ref s, '-' ) && TryMatch( ref s, '*' ) )
+        if( s.TryMatch('-') && s.TryMatch('*') )
         {
             var bound = new SVersionBound( SVersion.Create( major, minor, patch ), SVersionLock.LockPatch, "0", true );
             return new ParseResult( bound, false );
@@ -232,7 +232,7 @@ public readonly partial struct SVersionBound
         {
             if( TryMatchNonNegativeInt( ref s, out int major ) )
             {
-                if( s.Length == 0 || !TryMatch( ref s, '.' ) )
+                if( s.Length == 0 || !s.TryMatch('.') )
                 {
                     return SVersion.Create( major, 0, 0 );
                 }
