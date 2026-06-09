@@ -15,6 +15,9 @@ namespace CK.Core;
 ///         26 definite prerelease levels based on the OTAN alphabet (from "-alpha" to "-zulu").
 ///         Prerelease from "-alpha" to "-quebec" are compiled in Debug configuration, versions from "-romeo" to "-zulu"
 ///         are compiled in Release configuration.
+///         <para>
+///         These levels correspond to an increasing "quality".
+///         </para>
 ///     </item>
 ///     <item>
 ///         An "exploratory" range of zero-based versions: <c>0.0.0-0-explo</c> where <c>explo</c> can be any valid 
@@ -30,7 +33,17 @@ namespace CK.Core;
 ///         They are always compiled in Debug configuration.
 ///     </item>
 /// </list>
-/// These levels correspond to an increasing "quality".
+/// Moreover, a valid "Conformant SVersion" ensures that:
+/// <list type="bullet">
+///     <item>
+///     At most one among <see cref="SVersion.HasFakeMetadata"/>, <see cref="SVersion.HasDeprecatedMetadata"/>
+///     and <see cref="SVersion.HasInvalidMetadata"/> must be true.
+///     </item>
+///     <item>
+///     If it is a CI version (<see cref="SVersion.IsCI"/> is true), then <see cref="SVersion.HasFakeMetadata"/> and
+///     <see cref="SVersion.HasDeprecatedMetadata"/> are false (<see cref="SVersion.HasInvalidMetadata"/> may be true).
+///     </item>
+/// </list>
 /// </summary>
 public enum CSVersionKind
 {

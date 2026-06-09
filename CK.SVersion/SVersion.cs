@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
+using System.Numerics;
 using System.Text.RegularExpressions;
 
 namespace CK.Core;
@@ -12,6 +13,9 @@ namespace CK.Core;
 /// Strictly conforms to http://semver.org/ v2.0.0 (with a capture of the <see cref="ErrorMessage"/>
 /// when <see cref="IsValid"/> is false) except that the 'v' prefix is allowed and handled transparently
 /// and a <see cref="ParsedPrefix"/> can be handled.
+/// <para>
+/// Conformant SVersions are a subset of valid SVersion identified by a <see cref="VersionKind"/> that is not <see cref="CSVersionKind.None"/>.
+/// </para>
 /// </summary>
 [DebuggerDisplay( "{ToString(),nq}" )]
 public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
@@ -20,18 +24,18 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     /// The zero version is "0.0.0-0". It is syntactically valid and 
     /// its precedence is greater than null and lower than any other syntactically valid <see cref="SVersion"/>.
     /// </summary>
-    static public readonly SVersion ZeroVersion = new SVersion( null, null, 0, 0, 0, "0", String.Empty, CSVersionKind.None, 0, -1 );
+    static public readonly SVersion ZeroVersion = new SVersion( null, null, 0, 0, 0, "0", String.Empty, CSVersionKind.None, 0, -1, false, false, false );
 
     /// <summary>
     /// The supremum of the exploratory versions is "0.0.0-1". All <see cref="CSVersionKind.Exploratory"/> versions
     /// are between "0.0.0-0" and "0.0.0-1".
     /// </summary>
-    static public readonly SVersion SupExploratoryVersion = new SVersion( null, null, 0, 0, 0, "1", String.Empty, CSVersionKind.None, 0, -1 );
+    static public readonly SVersion SupExploratoryVersion = new SVersion( null, null, 0, 0, 0, "1", String.Empty, CSVersionKind.None, 0, -1, false, false, false );
 
     /// <summary>
     /// The first Conformant SVersion is "0.0.0-alpha".
     /// </summary>
-    static public readonly SVersion FirstCSVersion = new SVersion( null, null, 0, 0, 0, "alpha", String.Empty, CSVersionKind.Alpha, 0, -1 );
+    static public readonly SVersion FirstCSVersion = new SVersion( null, null, 0, 0, 0, "alpha", String.Empty, CSVersionKind.Alpha, 0, -1, false, false, false );
 
     /// <summary>
     /// The last SemVer version possible has <see cref="int.MaxValue"/> as its Major, Minor and Patch and has no prerelease.
@@ -46,7 +50,10 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
                                                                 buildMetaData: String.Empty,
                                                                 CSVersionKind.Stable,
                                                                 csPrereleaseNumber: 0,
-                                                                ciNumber: -1 );
+                                                                ciNumber: -1,
+                                                                false,
+                                                                false,
+                                                                false );
 
     readonly int _major;
     readonly int _minor;
@@ -74,6 +81,11 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     readonly int _ciNumber;
     // CSVersion kind. None (the default) when IsValid is false.
     readonly CSVersionKind _csKind;
+    // This applies to regular SVersion but for a CSVersion to be valid, at most
+    // one of them must be true and IsCI must be false.
+    readonly bool _hasFakeMetadata;
+    readonly bool _hasDeprecatedMetadata;
+    readonly bool _hasInvalidMetadata;
 
     SVersion( string? parsedText,
               string? parsedVersion,
@@ -85,6 +97,9 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
               CSVersionKind csKind,
               int csPrereleaseNumber,
               int ciNumber,
+              bool hasFakeMetadata,
+              bool hasDeprecatedMetadata,
+              bool hasInvalidMetadata,
               int fourthPart = -1 )
     {
         // prerelease may start with '-' (we use this for the double dash --ci trick). 
@@ -105,6 +120,9 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
         _csKind = csKind;
         _csPrereleaseNumber = csPrereleaseNumber;
         _ciNumber = ciNumber;
+        _hasFakeMetadata = hasFakeMetadata;
+        _hasDeprecatedMetadata = hasDeprecatedMetadata;
+        _hasInvalidMetadata = hasInvalidMetadata;
         if( fourthPart == -1 )
         {
             _normalizedText = prerelease.Length > 0
@@ -261,6 +279,21 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     public string BuildMetaData => _buildMetaData;
 
     /// <summary>
+    /// Gets whether a "fake" dotted identifier appears in <see cref="BuildMetaData"/> (case insensitive).
+    /// </summary>
+    public bool HasFakeMetadata => _hasFakeMetadata;
+
+    /// <summary>
+    /// Gets whether a "deprecated" dotted identifier appears in <see cref="BuildMetaData"/> (case insensitive).
+    /// </summary>
+    public bool HasDeprecatedMetadata => _hasDeprecatedMetadata;
+
+    /// <summary>
+    /// Gets whether a "invalid" dotted identifier appears in <see cref="BuildMetaData"/> (case insensitive).
+    /// </summary>
+    public bool HasInvalidMetadata => _hasInvalidMetadata;
+
+    /// <summary>
     /// An error message that describes the error if <see cref="IsValid"/> is false. Null otherwise.
     /// </summary>
     public string? ErrorMessage => _errorMessage;
@@ -328,13 +361,38 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     /// <see cref="IsValid"/> must be true otherwise an <see cref="InvalidOperationException"/> is thrown.
     /// </summary>
     /// <param name="buildMetaData">The new build meta data or null to remove it.</param>
-    /// <returns>This or a new SVersion.</returns>
-    public SVersion SetBuildMetaData( string? buildMetaData )
+    /// <param name="checkSyntax">False to opt-out of strict <see cref="BuildMetaData"/> compliance.</param>
+    /// <returns>This or a new SVersion (may be invalid if <paramref name="checkSyntax"/> is true).</returns>
+    public SVersion SetBuildMetaData( string? buildMetaData, bool checkSyntax = true )
     {
         buildMetaData ??= String.Empty;
-        return buildMetaData == _buildMetaData
-                ? this
-                : new SVersion( null, null, _major, _minor, _patch, _prerelease, buildMetaData, _csKind, _csPrereleaseNumber, _ciNumber, _fourthPart );
+        if( buildMetaData == _buildMetaData )
+        {
+            return this;
+        }
+        bool hasFakeMetadata = false;
+        bool hasDeprecatedMetadata = false;
+        bool hasInvalidMetadata = false;
+        if( buildMetaData.Length > 0 )
+        {
+            var error = ParseBuildMetadata( buildMetaData, checkSyntax, ref hasFakeMetadata, ref hasDeprecatedMetadata, ref hasInvalidMetadata );
+            if( error != null ) return new SVersion( error, buildMetaData );
+        }
+
+        return new SVersion( null,
+                             null,
+                             _major,
+                             _minor,
+                             _patch,
+                             _prerelease,
+                             buildMetaData,
+                             _csKind,
+                             _csPrereleaseNumber,
+                             _ciNumber,
+                             hasFakeMetadata,
+                             hasDeprecatedMetadata,
+                             hasInvalidMetadata,
+                             _fourthPart );
     }
 
     /// <summary>
@@ -394,7 +452,20 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
                 newPrerelease = string.Create( CultureInfo.InvariantCulture, $"{currentPrerelease}.0.ci.{ciNumber}" );
             }
         }
-        return new SVersion( null, null, _major, _minor, _patch, newPrerelease, _buildMetaData, _csKind, _csPrereleaseNumber, ciNumber );
+        Debug.Assert( _fourthPart == -1 );
+        return new SVersion( null,
+                             null,
+                             _major,
+                             _minor,
+                             _patch,
+                             newPrerelease,
+                             _buildMetaData,
+                             _csKind,
+                             _csPrereleaseNumber,
+                             ciNumber,
+                             _hasFakeMetadata,
+                             _hasDeprecatedMetadata,
+                             _hasInvalidMetadata );
     }
 
     /// <summary>
@@ -414,7 +485,20 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
         ArgumentOutOfRangeException.ThrowIfNegative( major );
         ArgumentOutOfRangeException.ThrowIfNegative( minor );
         ArgumentOutOfRangeException.ThrowIfNegative( patch );
-        return new SVersion( null, null, major, minor, patch, _prerelease, _buildMetaData, _csKind, _csPrereleaseNumber, _ciNumber, _fourthPart );
+        return new SVersion( null,
+                             null,
+                             major,
+                             minor,
+                             patch,
+                             _prerelease,
+                             _buildMetaData,
+                             _csKind,
+                             _csPrereleaseNumber,
+                             _ciNumber,
+                             _hasFakeMetadata,
+                             _hasDeprecatedMetadata,
+                             _hasInvalidMetadata,
+                             _fourthPart );
     }
 
     /// <summary>
@@ -441,7 +525,20 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
             SVersionChange.Minor => (_major, _minor + 1, 0),
             _ => (_major, _minor, _patch + 1)
         };
-        return new SVersion( null, null, major, minor, patch, _prerelease, _buildMetaData, _csKind, _csPrereleaseNumber, _ciNumber, _fourthPart );
+        return new SVersion( null,
+                             null,
+                             major,
+                             minor,
+                             patch,
+                             _prerelease,
+                             _buildMetaData,
+                             _csKind,
+                             _csPrereleaseNumber,
+                             _ciNumber,
+                             _hasFakeMetadata,
+                             _hasDeprecatedMetadata,
+                             _hasInvalidMetadata,
+                             _fourthPart );
     }
 
     /// <summary>
@@ -509,7 +606,19 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
                 }
             }
         }
-        return new SVersion( null, null, _major, _minor, _patch, newPrerelease, _buildMetaData, _csKind, number, ciNumber );
+        return new SVersion( null,
+                             null,
+                             _major,
+                             _minor,
+                             _patch,
+                             newPrerelease,
+                             _buildMetaData,
+                             _csKind,
+                             number,
+                             ciNumber,
+                             _hasFakeMetadata,
+                             _hasDeprecatedMetadata,
+                             _hasInvalidMetadata );
     }
 
     /// <summary>
@@ -549,6 +658,10 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     /// <param name="prerelease">The optional prerelease version (without leading '-': "alpha", "r.1.ci.2", etc.).</param>
     /// <param name="buildMetaData">The optional build meta data (without leading '+').</param>
     /// <param name="checkBuildMetaDataSyntax">False to opt-out of strict <see cref="BuildMetaData"/> compliance.</param>
+    /// <param name="mustBeCSVersion">
+    /// True to only accept valid CSVersion (see <see cref="CSVersionKind"/>).
+    /// By default, any version that follows the Semantic Versioning rules are accepted. 
+    /// </param>
     /// <param name="fourthPart">Optional, non standard, fourth version part.</param>
     /// <returns>The <see cref="SVersion"/>.</returns>
     public static SVersion Create( int major,
@@ -557,6 +670,7 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
                                    string? prerelease = null,
                                    string? buildMetaData = null,
                                    bool checkBuildMetaDataSyntax = true,
+                                   bool mustBeCSVersion = false,
                                    int fourthPart = -1 )
     {
         return DoCreate( null,
@@ -567,7 +681,8 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
                          fourthPart,
                          prerelease ?? String.Empty,
                          buildMetaData ?? String.Empty,
-                         checkBuildMetaDataSyntax );
+                         checkBuildMetaDataSyntax,
+                         mustBeCSVersion );
     }
 
     /// <summary>
@@ -587,11 +702,16 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     /// Caution: in this mode, "001.0.0" is a valid version with a "00" prefix (but "v001.0.0" is not).
     /// </para>
     /// </param>
+    /// <param name="mustBeCSVersion">
+    /// True to only accept valid CSVersion (see <see cref="CSVersionKind"/>).
+    /// By default, any version that follows the Semantic Versioning rules are accepted. 
+    /// </param>
     /// <returns>True on success (the head is forwarded), false otherwise.</returns>
     public static bool TryMatch( ref ReadOnlySpan<char> head,
                                  [NotNullWhen( true )] out SVersion? version,
                                  bool checkBuildMetaDataSyntax = true,
-                                 bool allowPrefix = false )
+                                 bool allowPrefix = false,
+                                 bool mustBeCSVersion = false )
     {
         var m = SVersionRegEx().EnumerateMatches( head );
         if( !m.MoveNext() )
@@ -600,7 +720,11 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
             return false;
         }
         int vLength = m.Current.Index + m.Current.Length;
-        version = ParseNoThrow( new string( head.Slice( 0, vLength ) ), checkBuildMetaDataSyntax, allowPrefix );
+        version = ParseNoThrow( new string( head.Slice( 0, vLength ) ),
+                                checkBuildMetaDataSyntax,
+                                allowPrefix,
+                                allowTrailingSuffix: false,
+                                mustBeCSVersion );
         if( version.IsValid )
         {
             head = head.Slice( vLength );
@@ -626,11 +750,16 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     /// True to allow <paramref name="s"/> to be longer than the version: on success, the exact parsed version length is 
     /// given by the <see cref="ParsedText"/>'s length.
     /// </param>
+    /// <param name="mustBeCSVersion">
+    /// True to only accept valid CSVersion (see <see cref="CSVersionKind"/>).
+    /// By default, any version that follows the Semantic Versioning rules are accepted. 
+    /// </param>
     /// <returns>The SVersion object that may not be <see cref="IsValid"/>.</returns>
     public static SVersion ParseNoThrow( string? s,
                                          bool checkBuildMetaDataSyntax = true,
                                          bool allowPrefix = false,
-                                         bool allowTrailingSuffix = false )
+                                         bool allowTrailingSuffix = false,
+                                         bool mustBeCSVersion = false )
     {
         if( string.IsNullOrEmpty( s ) ) return new SVersion( "Null or empty version string.", s );
         Match m = SVersionRegEx().Match( s );
@@ -667,12 +796,21 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
             if( !int.TryParse( sFourthPart, NumberStyles.None, CultureInfo.InvariantCulture, out fourthPart ) ) return new SVersion( "Invalid FourthPart.", s );
         }
 
-        return DoCreate( parsedText, m.Value, major, minor, patch, fourthPart, m.Groups[5].Value, m.Groups[6].Value, checkBuildMetaDataSyntax );
+        return DoCreate( parsedText,
+                         m.Value,
+                         major,
+                         minor,
+                         patch,
+                         fourthPart,
+                         m.Groups[5].Value,
+                         m.Groups[6].Value,
+                         checkBuildMetaDataSyntax,
+                         mustBeCSVersion );
     }
 
     /// <summary>
     /// Standard TryParse pattern that returns a boolean rather than the resulting <see cref="SVersion"/>.
-    /// See <see cref="ParseNoThrow(string?, bool, bool, bool)"/>.
+    /// See <see cref="ParseNoThrow(string?, bool, bool, bool, bool)"/>.
     /// </summary>
     /// <param name="s">String to parse.</param>
     /// <param name="v">Resulting version.</param>
@@ -688,10 +826,19 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     /// True to allow <paramref name="s"/> to be longer than the version: on success, the exact parsed version length is 
     /// given by the <see cref="ParsedText"/>'s length.
     /// </param>
+    /// <param name="mustBeCSVersion">
+    /// True to only accept valid CSVersion (see <see cref="CSVersionKind"/>).
+    /// By default, any version that follows the Semantic Versioning rules are accepted. 
+    /// </param>
     /// <returns>True on success, false otherwise.</returns>
-    public static bool TryParse( string? s, out SVersion v, bool checkBuildMetaDataSyntax = true, bool allowPrefix = false, bool allowTrailingSuffix = false )
+    public static bool TryParse( string? s,
+                                 out SVersion v,
+                                 bool checkBuildMetaDataSyntax = true,
+                                 bool allowPrefix = false,
+                                 bool allowTrailingSuffix = false,
+                                 bool mustBeCSVersion = false )
     {
-        v = ParseNoThrow( s, checkBuildMetaDataSyntax, allowPrefix, allowTrailingSuffix );
+        v = ParseNoThrow( s, checkBuildMetaDataSyntax, allowPrefix, allowTrailingSuffix, mustBeCSVersion );
         return v.IsValid;
     }
 
@@ -712,10 +859,18 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     /// True to allow <paramref name="s"/> to be longer than the version: on success, the exact parsed version length is 
     /// given by the <see cref="ParsedText"/>'s length.
     /// </param>
+    /// <param name="mustBeCSVersion">
+    /// True to only accept valid CSVersion (see <see cref="CSVersionKind"/>).
+    /// By default, any version that follows the Semantic Versioning rules are accepted. 
+    /// </param>
     /// <returns>The SVersion object.</returns>
-    public static SVersion Parse( string? s, bool checkBuildMetaDataSyntax = true, bool allowPrefix = false, bool allowTrailingSuffix = false )
+    public static SVersion Parse( string? s,
+                                  bool checkBuildMetaDataSyntax = true,
+                                  bool allowPrefix = false,
+                                  bool allowTrailingSuffix = false,
+                                  bool mustBeCSVersion = false )
     {
-        var v = ParseNoThrow( s, checkBuildMetaDataSyntax, allowPrefix, allowTrailingSuffix );
+        var v = ParseNoThrow( s, checkBuildMetaDataSyntax, allowPrefix, allowTrailingSuffix, mustBeCSVersion );
         if( !v.IsValid ) throw new ArgumentException( v.ErrorMessage, nameof( s ) );
         return v;
     }
@@ -728,20 +883,36 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
                               int fourthPart,
                               string prerelease,
                               string buildMetaData,
-                              bool checkBuildMetaDataSyntax )
+                              bool checkBuildMetaDataSyntax,
+                              bool mustBeCSVersion )
     {
         Debug.Assert( (parsedText != null) == (parsedVersion != null) );
         Debug.Assert( prerelease != null && buildMetaData != null );
         if( major < 0 || minor < 0 || patch < 0 ) return new SVersion( "Major, minor and patch must positive or 0.", parsedText );
 
-        if( buildMetaData.Length > 0 && checkBuildMetaDataSyntax )
+        bool hasFakeMetadata = false;
+        bool hasDeprecatedMetadata = false;
+        bool hasInvalidMetadata = false;
+        if( buildMetaData.Length > 0 )
         {
-            var error = ValidateDottedIdentifiers( buildMetaData, "build metadata" );
+            var error = ParseBuildMetadata( buildMetaData, checkBuildMetaDataSyntax, ref hasFakeMetadata, ref hasDeprecatedMetadata, ref hasInvalidMetadata );
             if( error != null ) return new SVersion( error, parsedText );
         }
         // Validate the prerelease.
         // When the 4th part is set, kind is None.
-        CSVersionKind kind = fourthPart < 0 ? CSVersionKind.Stable : CSVersionKind.None;
+        CSVersionKind kind;
+        if( fourthPart < 0 )
+        {
+            kind = CSVersionKind.Stable;
+        }
+        else
+        {
+            kind = CSVersionKind.None;
+            if( mustBeCSVersion )
+            {
+                return new SVersion( "A four-part version is not a CSVersion.", parsedText );
+            }
+        }
         int csReleaseNumber = 0;
         int ciNumber = -1;
 
@@ -761,6 +932,10 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
                     {
                         kind = CSVersionKind.Stable;
                     }
+                    else if( mustBeCSVersion )
+                    {
+                        return new SVersion( "Invalid CSVersion: error in --ci syntax.", parsedText );
+                    }
                 }
                 else if( first.Length == 1 && first[0] == '0' )
                 {
@@ -769,40 +944,112 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
                     // "-0.XXX.1.ci.1" (count = 5)
                     // => count = 4 cannot be a CSVersion.
                     //    And when count = 3, then the PrereleaseNumber cannot be 0 ("-0.XXX.0" is not a CSVersion).
-                    if( captures.Count is 2 or 3 or 5
-                        && captures[1].ValueSpan.ContainsAnyExcept( "0123456789" ) )
+                    if( captures.Count is 2 or 3 or 5 )
                     {
-                        kind = CSVersionKind.Exploratory;
-                        if( captures.Count > 2 )
+                        if( captures[1].ValueSpan.ContainsAnyExcept( "0123456789" ) )
                         {
-                            csReleaseNumber = HandlePrereleaseAndCINumber( ref kind, ref ciNumber, captures, 2 );
-                            if( captures.Count == 3 && csReleaseNumber == 0 )
+                            kind = CSVersionKind.Exploratory;
+                            if( captures.Count > 2 )
                             {
-                                kind = CSVersionKind.None;
+                                csReleaseNumber = HandlePrereleaseAndCINumber( ref kind, ref ciNumber, captures, 2 );
+                                if( captures.Count == 3 && csReleaseNumber == 0 )
+                                {
+                                    Debug.Assert( ciNumber == -1 );
+                                    if( mustBeCSVersion )
+                                    {
+                                        return new SVersion( "Invalid 0 prerelease number without .ci suffix in Exploratory CSVersion.", parsedText );
+                                    }
+                                    kind = CSVersionKind.None;
+                                }
                             }
                         }
+                        else if( mustBeCSVersion )
+                        {
+                            return new SVersion( "Invalid Exploratory CSVersion: name must not be only numeric.", parsedText );
+                        }
+                    }
+                    else if( mustBeCSVersion )
+                    {
+                        return new SVersion( "Invalid potential Exploratory CSVersion.", parsedText );
                     }
                 }
                 else
                 {
                     // CSVersion prerelease name?
                     // Same pattern as above but without the first "0.".
-                    if( captures.Count is 1 or 2 or 4
-                        && CSVersionKindExtensions.TryParse( first, out kind ) )
+                    if( captures.Count is 1 or 2 or 4 )
                     {
-                        if( captures.Count > 1 )
+                        if( CSVersionKindExtensions.TryParse( first, out kind ) )
                         {
-                            csReleaseNumber = HandlePrereleaseAndCINumber( ref kind, ref ciNumber, captures, 1 );
-                            if( captures.Count == 2 && csReleaseNumber == 0 )
+                            if( captures.Count > 1 )
                             {
-                                kind = CSVersionKind.None;
+                                csReleaseNumber = HandlePrereleaseAndCINumber( ref kind, ref ciNumber, captures, 1 );
+                                if( captures.Count == 2 && csReleaseNumber == 0 )
+                                {
+                                    Debug.Assert( ciNumber == -1 );
+                                    if( mustBeCSVersion )
+                                    {
+                                        return new SVersion( "Invalid 0 prerelease number without .ci suffix in prerelease CSVersion.", parsedText );
+                                    }
+                                    kind = CSVersionKind.None;
+                                }
                             }
                         }
+                        else if( mustBeCSVersion )
+                        {
+                            return new SVersion( $"Invalid prerelease CSVersion: '{captures[1].Value}' is not a conformant prerelease name.", parsedText );
+                        }
+                    }
+                    else if( mustBeCSVersion )
+                    {
+                        return new SVersion( "Invalid potential prerelease CSVersion.", parsedText );
                     }
                 }
             }
         }
-        return new SVersion( parsedText, parsedVersion, major, minor, patch, prerelease, buildMetaData, kind, csReleaseNumber, ciNumber, fourthPart );
+        // Before concluding, we must ensure the conformance.
+        if( kind != CSVersionKind.None )
+        {
+            // This is a potential CSVersion but to actually be conformant:
+            // - It can be at most one among +fake, +deprecated and +invalid.
+            // - If it is a CI version, then it cannot be +fake or +deprecated (but may be +invalid).
+            if( hasFakeMetadata && (hasDeprecatedMetadata || hasInvalidMetadata)
+                     || hasDeprecatedMetadata && hasInvalidMetadata )
+            {
+                if( mustBeCSVersion )
+                {
+                    return new SVersion( "To be conformant, build metadata must have at most one +fake, +deprecated or +invalid metadata.", parsedText ?? buildMetaData );
+                }
+                kind = CSVersionKind.None;
+                csReleaseNumber = 0;
+                ciNumber = -1;
+            }
+
+            if( ciNumber >= 0 && (hasFakeMetadata || hasDeprecatedMetadata) )
+            {
+                if( mustBeCSVersion )
+                {
+                    return new SVersion( "A conformant CI build version cannot be +fake, +deprecated or +invalid.", parsedText ?? buildMetaData );
+                }
+                kind = CSVersionKind.None;
+                csReleaseNumber = 0;
+                ciNumber = -1;
+            }
+        }
+        return new SVersion( parsedText,
+                             parsedVersion,
+                             major,
+                             minor,
+                             patch,
+                             prerelease,
+                             buildMetaData,
+                             kind,
+                             csReleaseNumber,
+                             ciNumber,
+                             hasFakeMetadata,
+                             hasDeprecatedMetadata,
+                             hasInvalidMetadata,
+                             fourthPart );
 
         static int HandlePrereleaseAndCINumber( ref CSVersionKind kind, ref int ciNumber, CaptureCollection captures, int releaseNumberIndex )
         {
@@ -830,6 +1077,49 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
             }
             return csReleaseNumber;
         }
+    }
+
+    static string? ParseBuildMetadata( ReadOnlySpan<char> buildMetadata,
+                                       bool checkSyntax,
+                                       ref bool hasFakeMetadata,
+                                       ref bool hasDeprecatedMetadata,
+                                       ref bool hasInvalidMetadata )
+    {
+        var eM = DottedPartRegEx().EnumerateMatches( buildMetadata );
+        if( !eM.MoveNext() )
+        {
+            return checkSyntax ? "Invalid build metadata" : null;
+        }
+        var e = buildMetadata.Split( '.' );
+        while( e.MoveNext() )
+        {
+            var p = buildMetadata[e.Current];
+            if( checkSyntax && p.Length > 1 && p[0] == '0' )
+            {
+                int i = 1;
+                while( i < p.Length )
+                {
+                    if( !char.IsDigit( p[i++] ) ) break;
+                }
+                if( i == p.Length )
+                {
+                    return $"Numeric identifiers in build metadata must not start with a 0.";
+                }
+            }
+            if( p.Equals( "fake", StringComparison.OrdinalIgnoreCase ) )
+            {
+                hasFakeMetadata = true;
+            }
+            else if( p.Equals( "deprecated", StringComparison.OrdinalIgnoreCase ) )
+            {
+                hasDeprecatedMetadata = true;
+            }
+            else if( p.Equals( "invalid", StringComparison.OrdinalIgnoreCase ) )
+            {
+                hasInvalidMetadata = true;
+            }
+        }
+        return null;
     }
 
     internal static string? ValidateDottedIdentifiers( string s, string partName, out CaptureCollection? captures )
@@ -861,7 +1151,6 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
         }
         return null;
     }
-
 
     internal static string? ValidateDottedIdentifiers( ReadOnlySpan<char> s, string partName )
     {
