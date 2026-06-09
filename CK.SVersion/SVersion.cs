@@ -67,8 +67,8 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     // _parsedText and _parsedVersion are both null or non null.
     readonly string? _parsedText;
     readonly string? _parsedVersion;
-    // No 'v' prefix. Always available when IsValid.
-    readonly string _normalizedText;
+    // Always available (the version without 'v' prefix when IsValid and the "ErrorMessage (ParsedText)" on error).
+    readonly string _toString;
     // !IsValid => !null.
     readonly string? _errorMessage;
     // Computed on demand (from _parsedText and _parsedVersion).
@@ -125,18 +125,18 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
         _hasInvalidMetadata = hasInvalidMetadata;
         if( fourthPart == -1 )
         {
-            _normalizedText = prerelease.Length > 0
+            _toString = prerelease.Length > 0
                 ? String.Format( CultureInfo.InvariantCulture, "{0}.{1}.{2}-{3}", major, minor, patch, prerelease )
                 : String.Format( CultureInfo.InvariantCulture, "{0}.{1}.{2}", major, minor, patch );
         }
         else
         {
             // Uncommon case.
-            _normalizedText = String.Format( CultureInfo.InvariantCulture, "{0}.{1}.{2}.{3}", major, minor, patch, fourthPart );
-            if( prerelease.Length > 0 ) _normalizedText += '-' + prerelease;
+            _toString = String.Format( CultureInfo.InvariantCulture, "{0}.{1}.{2}.{3}", major, minor, patch, fourthPart );
+            if( prerelease.Length > 0 ) _toString += '-' + prerelease;
         }
         // Uncommon case.
-        if( buildMetaData.Length > 0 ) _normalizedText += '+' + buildMetaData;
+        if( buildMetaData.Length > 0 ) _toString += '+' + buildMetaData;
     }
 
     SVersion( string prefix, SVersion o )
@@ -155,7 +155,7 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
         {
             _parsedText = prefix + _parsedVersion;
         }
-        _normalizedText = o._normalizedText;
+        _toString = o._toString;
     }
 
     /// <summary>
@@ -171,8 +171,10 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
         _prerelease = String.Empty;
         _buildMetaData = String.Empty;
         _parsedText = parsedText;
-        _normalizedText = error;
         _ciNumber = -1;
+        _toString = string.IsNullOrWhiteSpace( parsedText )
+                        ? error
+                        :  $"{error} ({parsedText})";
     }
 
     /// <summary>
@@ -299,11 +301,10 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     public string? ErrorMessage => _errorMessage;
 
     /// <summary>
-    /// Gets whether this <see cref="SVersion"/> is valid (<see cref="NormalizedText"/> is not null).
-    /// When false, then <see cref="ErrorMessage"/> is not null (and NormalizedText is null).
+    /// Gets whether this <see cref="SVersion"/> is valid.
+    /// When false, then <see cref="ErrorMessage"/> is not null.
     /// </summary>
     [MemberNotNullWhen( false, nameof( ErrorMessage ) )]
-    [MemberNotNullWhen( true, nameof( NormalizedText ) )]
     public bool IsValid => _errorMessage == null;
 
     /// <summary>
@@ -349,12 +350,6 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
             return _parsedPrefix;
         }
     }
-
-    /// <summary>
-    /// Gets the normalized version as a string.
-    /// Null if <see cref="IsValid"/> is false.
-    /// </summary>
-    public string? NormalizedText => _normalizedText;
 
     /// <summary>
     /// Returns a new <see cref="SVersion"/> with a potentially new <see cref="BuildMetaData"/>.
@@ -1180,10 +1175,11 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     }
 
     /// <summary>
-    /// Overridden to return the <see cref="ErrorMessage"/> if not null or the <see cref="NormalizedText"/>.
+    /// Overridden to return the version without 'v' prefix on success and, when <see cref="IsValid"/> is
+    /// false, the <see cref="ErrorMessage"/> with the <see cref="ParsedText"/> if any.
     /// </summary>
     /// <returns>The textual representation.</returns>
-    public override string ToString() => ErrorMessage ?? NormalizedText!;
+    public override string ToString() => _toString;
 
     /// <summary>
     /// Gets the standard Informational version string.
@@ -1202,8 +1198,7 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     /// <summary>
     /// Compares this with another <see cref="SVersion"/>.
     /// Null is lower than any version. An invalid version is lower than any valid version.
-    /// This (and the overloaded comparison operators) compares Semantic Version form (the <see cref="NormalizedText"/>)
-    /// according to the SemVer 2.0 specification.
+    /// This (and the overloaded comparison operators) compares Semantic Version form according to the SemVer 2.0 specification.
     /// </summary>
     /// <param name="other">
     /// The other version to compare with this instance. Can be null (null is lower than any version).

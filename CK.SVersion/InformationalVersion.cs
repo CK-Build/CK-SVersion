@@ -126,7 +126,7 @@ public partial class InformationalVersion
     {
         OriginalInformationalVersion = ZeroInformationalVersion;
         Version = SVersion.ZeroVersion;
-        RawVersion = Version.NormalizedText;
+        RawVersion = Version.ToString();
         CommitSha = ZeroCommitSha;
         CommitDate = ZeroCommitDate;
         IsValidSyntax = true;
