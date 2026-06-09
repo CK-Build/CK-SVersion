@@ -1006,9 +1006,20 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
         if( kind != CSVersionKind.None )
         {
             // This is a potential CSVersion but to actually be conformant:
+            // - Only stable versions can be +fake.
             // - It can be at most one among +fake, +deprecated and +invalid.
             // - If it is a CI version, then it cannot be +fake or +deprecated (but may be +invalid).
-            if( hasFakeMetadata && (hasDeprecatedMetadata || hasInvalidMetadata)
+            if( hasFakeMetadata && kind != CSVersionKind.Stable )
+            {
+                if( mustBeCSVersion )
+                {
+                    return new SVersion( "To be conformant, only stable versions can have +fake metadata.", parsedText ?? buildMetaData );
+                }
+                kind = CSVersionKind.None;
+                csReleaseNumber = 0;
+                ciNumber = -1;
+            }
+            else if( hasFakeMetadata && (hasDeprecatedMetadata || hasInvalidMetadata)
                      || hasDeprecatedMetadata && hasInvalidMetadata )
             {
                 if( mustBeCSVersion )
@@ -1019,12 +1030,11 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
                 csReleaseNumber = 0;
                 ciNumber = -1;
             }
-
-            if( ciNumber >= 0 && (hasFakeMetadata || hasDeprecatedMetadata) )
+            else if( ciNumber >= 0 && (hasFakeMetadata || hasDeprecatedMetadata) )
             {
                 if( mustBeCSVersion )
                 {
-                    return new SVersion( "A conformant CI build version cannot be +fake, +deprecated or +invalid.", parsedText ?? buildMetaData );
+                    return new SVersion( "A conformant CI build version cannot be +fake, +deprecated.", parsedText ?? buildMetaData );
                 }
                 kind = CSVersionKind.None;
                 csReleaseNumber = 0;

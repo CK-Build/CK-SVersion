@@ -40,6 +40,9 @@ namespace CK.Core;
 ///     and <see cref="SVersion.HasInvalidMetadata"/> must be true.
 ///     </item>
 ///     <item>
+///     Only <see cref="CSVersionKind.Stable"/> versions can be "+fake" versions.
+///     </item>
+///     <item>
 ///     If it is a CI version (<see cref="SVersion.IsCI"/> is true), then <see cref="SVersion.HasFakeMetadata"/> and
 ///     <see cref="SVersion.HasDeprecatedMetadata"/> are false (<see cref="SVersion.HasInvalidMetadata"/> may be true).
 ///     </item>
