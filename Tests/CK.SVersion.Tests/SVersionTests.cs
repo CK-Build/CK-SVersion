@@ -220,7 +220,7 @@ public class SVersionTests
         v.CINumber.ShouldBe( ciNumber );
     }
 
-    [TestCase( "1.0.0", "1.0.0--ci.42" )]
+    [TestCase( "1.0.0", "1.0.1--ci.42" )]
     [TestCase( "0.0.0-0.explo", "0.0.0-0.explo.0.ci.42" )]
     [TestCase( "0.0.0-0.explo.1", "0.0.0-0.explo.1.ci.42" )]
     [TestCase( "1.2.3-alpha", "1.2.3-alpha.0.ci.42" )]
@@ -233,18 +233,24 @@ public class SVersionTests
 
         var ci = from.SetCINumber( 42 );
         ci.ShouldBe( to );
-        // SetCINumber doesn't adjust the Major.Minor.Patch: the resulting stable version
-        // is a -- prerelease that is smaller than the stable.
+        var back = ci.SetCINumber( -1 );
+        back.ShouldBe( from );
+
+        // SetCINumber adjust the Major.Minor.Patch by default.
+        (from < to).ShouldBeTrue();
+
+        var toNoAdjust = from.SetCINumber( 42, impactStablePatchNumber: false );
         if( from.IsStable )
         {
-            from.CompareTo( ci ).ShouldBeGreaterThan( 0 );
+            toNoAdjust.ShouldNotBe( to );
+            // The --prerelease is smaller than the stable.
+            (from > toNoAdjust).ShouldBeTrue();
         }
         else
         {
-            from.CompareTo( ci ).ShouldBeLessThan( 0 );
+            toNoAdjust.ShouldBe( to );
+            (from < toNoAdjust).ShouldBeTrue();
         }
-        var back = ci.SetCINumber( -1 );
-        from.ShouldBe( back );
     }
 
     [TestCase( "0.0.0-0.explo", "0.0.0-0.explo.42" )]

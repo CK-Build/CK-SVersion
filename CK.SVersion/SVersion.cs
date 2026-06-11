@@ -399,8 +399,17 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     /// </para>
     /// </summary>
     /// <param name="ciNumber">-1 to remove the CI build number, must be 0 or positive otherwise.</param>
+    /// <param name="impactStablePatchNumber">
+    /// By default, this updates the <see cref="Patch"/> number if this version is <see cref="CSVersionKind.Stable"/>:
+    /// <list type="bullet">
+    ///     <item>When this <see cref="IsCI"/> is false and <paramref name="ciNumber"/> is 0 or positive, the returned <see cref="Patch"/> is incremented.</item>
+    ///     <item>When this <see cref="IsCI"/> is true and <paramref name="ciNumber"/> is -1, the returned <see cref="Patch"/> is decremented.</item>
+    /// </list>
+    /// Exploratory and prerelease conformant versions rely on the <see cref="PrereleaseNumber"/> and the ".ci." suffix: the CINumber applies to the
+    /// (last non CI) version, there is no need to adjust it.
+    /// </param>
     /// <returns>This or a new SVersion.</returns>
-    public SVersion SetCINumber( int ciNumber )
+    public SVersion SetCINumber( int ciNumber, bool impactStablePatchNumber = true )
     {
         ArgumentOutOfRangeException.ThrowIfLessThan( ciNumber, -1 );
         if( !IsCSVersion ) throw new InvalidOperationException( "Can be called only on Conformant SVersion." );
@@ -410,6 +419,7 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
             return this;
         }
 
+        int patch = _patch;
         var currentPrerelease = _prerelease.AsSpan();
         string newPrerelease;
         if( ciNumber == -1 )
@@ -417,6 +427,10 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
             if( _csKind is CSVersionKind.Stable )
             {
                 newPrerelease = "";
+                if( impactStablePatchNumber && patch > 0 )
+                {
+                    --patch;
+                }
             }
             else
             {
@@ -428,13 +442,17 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
         }
         else if( _ciNumber >= 0 )
         {
-            // Patch ci number: removes the suffix.
+            // Patch ci number (in place).
             newPrerelease = string.Create( CultureInfo.InvariantCulture, $"{currentPrerelease.Slice( 0, currentPrerelease.LastIndexOf( '.' ) + 1 )}{ciNumber}" );
         }
         else if( currentPrerelease.Length == 0 )
         {
             Debug.Assert( _csKind is CSVersionKind.Stable );
             newPrerelease = string.Create( CultureInfo.InvariantCulture, $"-ci.{ciNumber}" );
+            if( impactStablePatchNumber )
+            {
+                ++patch;
+            }
         }
         else
         {
@@ -452,7 +470,7 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
                              null,
                              _major,
                              _minor,
-                             _patch,
+                             patch,
                              newPrerelease,
                              _buildMetaData,
                              _csKind,
