@@ -1010,7 +1010,7 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
                         }
                         else if( mustBeCSVersion )
                         {
-                            return new SVersion( $"Invalid prerelease CSVersion: '{captures[1].Value}' is not a conformant prerelease name.", parsedText );
+                            return new SVersion( $"Invalid prerelease CSVersion: '{first}' is not a conformant prerelease name.", parsedText );
                         }
                     }
                     else if( mustBeCSVersion )
