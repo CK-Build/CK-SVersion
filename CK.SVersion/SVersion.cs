@@ -783,7 +783,7 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
         }
         if( m.Index > 0 && !allowPrefix )
         {
-            return new SVersion( "Invalid prefix before version.", s );
+            return new SVersion( "Disallowed prefix before version.", s );
         }
         string parsedText = s;
         int parsedLength = m.Index + m.Length;
@@ -791,7 +791,7 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
         {
             if( !allowTrailingSuffix )
             {
-                return new SVersion( "Unexpected characters after version.", s );
+                return new SVersion( "Disallowed characters after version.", s );
             }
             parsedText = s.Substring( 0, parsedLength );
         }
