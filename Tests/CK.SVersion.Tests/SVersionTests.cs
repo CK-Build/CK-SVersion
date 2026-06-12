@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Shouldly;
+using System.Runtime.InteropServices;
 
 namespace CK.Core.Tests;
 
@@ -29,9 +30,38 @@ public class SVersionTests
     public void the_Zero_SVersion_is_lower_than_any_other_syntactically_valid_SVersion( string version )
     {
         var v = SVersion.ParseNoThrow( version );
-        Assert.That( v.IsValid );
-        Assert.That( v > SVersion.ZeroVersion );
-        Assert.That( v != SVersion.ZeroVersion );
+        v.IsValid.ShouldBeTrue();
+        ( v > SVersion.ZeroVersion ).ShouldBeTrue();
+        ( v != SVersion.ZeroVersion ).ShouldBeTrue();
+    }
+
+    [TestCase( "0.0.0-a", "Invalid prerelease CSVersion: 'a' is not a conformant prerelease name. (0.0.0-a)" )]
+    [TestCase( "1.0.0-noway.ci.2", "Invalid prerelease CSVersion: 'noway' is not a conformant prerelease name. (1.0.0-noway.ci.2)" )]
+
+    [TestCase( "1.0.0-alpha.0", "Invalid 0 prerelease number without .ci suffix in Alpha CSVersion. (1.0.0-alpha.0)" )]
+    [TestCase( "1.0.0-alpha.0.pouf", "Invalid potential Alpha CSVersion. (1.0.0-alpha.0.pouf)" )]
+    [TestCase( "1.0.0-alpha.1.pouf.5", "Expected .ci.XXX suffix in Alpha CSVersion. (1.0.0-alpha.1.pouf.5)" )]
+    [TestCase( "1.0.0-alpha.42.ci.pouf", "Invalid ci number in Alpha CSVersion. (1.0.0-alpha.42.ci.pouf)" )]
+    [TestCase( "1.0.0-alpha.ci", "Invalid release number in Alpha CSVersion. (1.0.0-alpha.ci)" )]
+    [TestCase( "1.0.0-alpha.ci.2", "Invalid potential Alpha CSVersion. (1.0.0-alpha.ci.2)" )]
+
+    [TestCase( "1.0.0-ci.1", "Invalid prerelease CSVersion: 'ci' is not a conformant prerelease name. (1.0.0-ci.1)" )]
+    [TestCase( "1.0.0--ci", "Invalid CSVersion: error in --ci syntax. (1.0.0--ci)" )]
+    [TestCase( "1.0.0--ci.pouf", "Invalid CSVersion: error in --ci syntax. (1.0.0--ci.pouf)" )]
+    [TestCase( "1.0.0--ci.1a2", "Invalid CSVersion: error in --ci syntax. (1.0.0--ci.1a2)" )]
+
+    [TestCase( "1.0.0-0.explo.0", "Invalid 0 prerelease number without .ci suffix in Exploratory CSVersion. (1.0.0-0.explo.0)" )]
+    [TestCase( "1.0.0-0.explo.1.pouf.5", "Expected .ci.XXX suffix in Exploratory CSVersion. (1.0.0-0.explo.1.pouf.5)" )]
+    [TestCase( "1.0.0-0.explo.ci", "Invalid release number in Exploratory CSVersion. (1.0.0-0.explo.ci)" )]
+    [TestCase( "1.0.0-0.vNext.0.pouf", "Invalid potential Exploratory CSVersion. (1.0.0-0.vNext.0.pouf)" )]
+    [TestCase( "1.0.0-0.vNext.42.ci.pouf", "Invalid ci number in Exploratory CSVersion. (1.0.0-0.vNext.42.ci.pouf)" )]
+    [TestCase( "1.0.0-0.vNext.ci.2", "Invalid potential Exploratory CSVersion. (1.0.0-0.vNext.ci.2)" )]
+
+    public void mustBeCSVersion_SVersion_parse( string version, string expectedToString )
+    {
+        var v = SVersion.ParseNoThrow( version, mustBeCSVersion: true );
+        v.IsValid.ShouldBeFalse();
+        v.ToString().ShouldBe( expectedToString );
     }
 
     [Test]

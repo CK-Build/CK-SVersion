@@ -962,15 +962,14 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
                             kind = CSVersionKind.Exploratory;
                             if( captures.Count > 2 )
                             {
-                                csReleaseNumber = HandlePrereleaseAndCINumber( ref kind, ref ciNumber, captures, 2 );
-                                if( captures.Count == 3 && csReleaseNumber == 0 )
+                                error = ValidatePrereleaseAndCINumber( kind, ref csReleaseNumber, ref ciNumber, captures, 2 );
+                                if( error != null )
                                 {
-                                    Debug.Assert( ciNumber == -1 );
+                                    kind = CSVersionKind.None;
                                     if( mustBeCSVersion )
                                     {
-                                        return new SVersion( "Invalid 0 prerelease number without .ci suffix in Exploratory CSVersion.", parsedText );
+                                        return new SVersion( error, parsedText );
                                     }
-                                    kind = CSVersionKind.None;
                                 }
                             }
                         }
@@ -988,32 +987,32 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
                 {
                     // CSVersion prerelease name?
                     // Same pattern as above but without the first "0.".
-                    if( captures.Count is 1 or 2 or 4 )
+                    if( CSVersionKindExtensions.TryParse( first, out kind ) )
                     {
-                        if( CSVersionKindExtensions.TryParse( first, out kind ) )
+                        if( captures.Count is 2 or 4 )
                         {
-                            if( captures.Count > 1 )
+                            error = ValidatePrereleaseAndCINumber( kind, ref csReleaseNumber, ref ciNumber, captures, 1 );
+                            if( error != null )
                             {
-                                csReleaseNumber = HandlePrereleaseAndCINumber( ref kind, ref ciNumber, captures, 1 );
-                                if( captures.Count == 2 && csReleaseNumber == 0 )
+                                kind = CSVersionKind.None;
+                                if( mustBeCSVersion )
                                 {
-                                    Debug.Assert( ciNumber == -1 );
-                                    if( mustBeCSVersion )
-                                    {
-                                        return new SVersion( "Invalid 0 prerelease number without .ci suffix in prerelease CSVersion.", parsedText );
-                                    }
-                                    kind = CSVersionKind.None;
+                                    return new SVersion( error, parsedText );
                                 }
                             }
                         }
-                        else if( mustBeCSVersion )
+                        else
                         {
-                            return new SVersion( $"Invalid prerelease CSVersion: '{first}' is not a conformant prerelease name.", parsedText );
+                            if( mustBeCSVersion )
+                            {
+                                return new SVersion( $"Invalid potential {kind} CSVersion.", parsedText );
+                            }
+                            kind = CSVersionKind.None;
                         }
                     }
                     else if( mustBeCSVersion )
                     {
-                        return new SVersion( "Invalid potential prerelease CSVersion.", parsedText );
+                        return new SVersion( $"Invalid prerelease CSVersion: '{first}' is not a conformant prerelease name.", parsedText );
                     }
                 }
             }
@@ -1072,31 +1071,46 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
                              hasInvalidMetadata,
                              fourthPart );
 
-        static int HandlePrereleaseAndCINumber( ref CSVersionKind kind, ref int ciNumber, CaptureCollection captures, int releaseNumberIndex )
+        static string? ValidatePrereleaseAndCINumber( CSVersionKind kind,
+                                                      ref int csReleaseNumber,
+                                                      ref int ciNumber,
+                                                      CaptureCollection captures,
+                                                      int releaseNumberIndex )
         {
-            int csReleaseNumber;
+            Debug.Assert( kind is not CSVersionKind.None and not CSVersionKind.Stable );
+            Debug.Assert( csReleaseNumber == 0 );
+            Debug.Assert( ciNumber == -1 );
+            Debug.Assert( captures.Count == releaseNumberIndex + 1 || captures.Count == releaseNumberIndex + 3 );
+
             // There MUST be a numeric here (the prerelease number).
             if( !int.TryParse( captures[releaseNumberIndex].ValueSpan, NumberStyles.None, CultureInfo.InvariantCulture, out csReleaseNumber ) )
             {
-                kind = CSVersionKind.None;
+                return $"Invalid release number in {kind} CSVersion.";
             }
-            else if( captures.Count == releaseNumberIndex + 3
-                     && captures[releaseNumberIndex + 1].ValueSpan.Equals( "ci", StringComparison.OrdinalIgnoreCase ) )
+            if( captures.Count == releaseNumberIndex + 3 )
             {
-                if( !int.TryParse( captures[releaseNumberIndex + 2].ValueSpan, NumberStyles.None, CultureInfo.InvariantCulture, out ciNumber ) )
+                if( captures[releaseNumberIndex + 1].ValueSpan.Equals( "ci", StringComparison.OrdinalIgnoreCase ) )
                 {
-                    kind = CSVersionKind.None;
+                    if( !int.TryParse( captures[releaseNumberIndex + 2].ValueSpan, NumberStyles.None, CultureInfo.InvariantCulture, out ciNumber ) )
+                    {
+                        csReleaseNumber = 0;
+                        ciNumber = -1;
+                        return $"Invalid ci number in {kind} CSVersion.";
+                    }
+                }
+                else
+                {
                     csReleaseNumber = 0;
-                    ciNumber = -1;
+                    return $"Expected .ci.XXX suffix in {kind} CSVersion.";
                 }
             }
-            // Handle the fact that "-alpha.0" is NOT a CSVersion.
-            if( csReleaseNumber == 0 && ciNumber == -1 && kind != CSVersionKind.None )
+            // Handles the fact that "-alpha.0" is NOT a CSVersion.
+            if( csReleaseNumber == 0 && ciNumber == -1 )
             {
-                kind = CSVersionKind.None;
                 csReleaseNumber = 0;
+                return $"Invalid 0 prerelease number without .ci suffix in {kind} CSVersion.";
             }
-            return csReleaseNumber;
+            return null;
         }
     }
 
