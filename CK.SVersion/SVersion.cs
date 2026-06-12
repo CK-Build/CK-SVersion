@@ -1001,7 +1001,7 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
                                 }
                             }
                         }
-                        else
+                        else if( captures.Count != 1 )
                         {
                             if( mustBeCSVersion )
                             {
