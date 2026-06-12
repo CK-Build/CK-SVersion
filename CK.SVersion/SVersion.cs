@@ -2,8 +2,6 @@ using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using System.IO;
-using System.Numerics;
 using System.Text.RegularExpressions;
 
 namespace CK.Core;

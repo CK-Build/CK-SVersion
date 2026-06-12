@@ -1,8 +1,6 @@
 using System;
 using System.Diagnostics;
 using System.Text;
-using System.Threading;
-using System.Xml.Resolvers;
 
 namespace CK.Core;
 
