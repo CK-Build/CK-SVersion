@@ -219,6 +219,7 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     /// <summary>
     /// Gets whether this version belongs to the "CSVersion" subset.
     /// </summary>
+    [MemberNotNullWhen( true, nameof( BranchName ) )]
     public bool IsCSVersion => _csKind != CSVersionKind.None;
 
     /// <summary>
@@ -253,6 +254,21 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
             return default;
         }
     }
+
+    /// <summary>
+    /// Gets a branch name for this version:
+    /// <list type="bullet">
+    ///     <item>null for <see cref="CSVersionKind.None"/> (when <see cref="IsCSVersion"/> is false).</item>
+    ///     <item>The empty string for <see cref="CSVersionKind.Stable"/>.</item>
+    ///     <item>Prereleases are simply their lowercase name (see <see cref="CSVersionKindExtensions.ToPrerelease(CSVersionKind)"/>).</item>
+    ///     <item>Exploratory branches are "explo/<see cref="ExploratoryName"/>".</item>
+    /// </list>
+    /// </summary>
+    public string? BranchName => _csKind == CSVersionKind.None
+                                    ? null
+                                    : _csKind == CSVersionKind.Exploratory
+                                        ? $"explo/{ExploratoryName}"
+                                        : _csKind.ToPrerelease();
 
     /// <summary>
     /// Gets whether this version is a CI build version (a "post-build" version):
@@ -292,6 +308,43 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     /// Gets whether a "invalid" dotted identifier appears in <see cref="BuildMetaData"/> (case insensitive).
     /// </summary>
     public bool HasInvalidMetadata => _hasInvalidMetadata;
+
+    /// <summary>
+    /// Gets whether this version is a "rough base" of the target. This version MUST be <see cref="SVersion.IsStable"/> otherwise
+    /// an <see cref="InvalidOperationException"/> is thrown. The target is roughly based on this version if it has
+    /// the same Major.Minor.Patch or any valid increment (Major+1.0.0, Major.Minor+1.0 or Major.Minor.Patch+1).
+    /// <para>
+    /// This accepts any prerelease of this version and any version that immediately follow this version, including their prereleases,
+    /// so this accepts any "post release" of this version (with the double dash trick).
+    /// </para>
+    /// <para>
+    /// This is used by the fake version:
+    /// <list type="bullet">
+    ///     <item>
+    ///         For CI build versions: "1.0.0" is a rough base of "1.0.0--ci.1" (that is
+    ///         an artificial CI build version that is used only for fake versions) and real CI build like 1.0.1--ci.0, 1.1.0--ci.4 or 2.0.0--ci.4.
+    ///     </item>
+    ///     <item>
+    ///         For regular versions: "1.0.0" is a rough base of itself, of any of its prelease versions like "1.0.0-any", of its successors "1.0.1",
+    ///         "1.1.0", "2.0.0" and any of their prereleases.
+    ///     </item>
+    /// </list>
+    /// </para>
+    /// </summary>
+    /// <param name="version">This stable version.</param>
+    /// <param name="target">The target that may be roughly based on this stable version.</param>
+    /// <returns></returns>
+    public bool IsStableRoughBaseOf( SVersion target )
+    {
+        if( !IsStable ) throw new InvalidOperationException( $"Version '{_toString}' must be stable." );
+        if( _major == target._major )
+        {
+            return _minor == target._minor
+                    ? _patch == target._patch || _patch == target._patch + 1
+                    : _minor == target._minor + 1 && target._patch == 0;
+        }
+        return _major == target._major + 1 && target._minor == 0 && target._patch == 0;
+    }
 
     /// <summary>
     /// An error message that describes the error if <see cref="IsValid"/> is false. Null otherwise.
