@@ -62,13 +62,14 @@ public enum CSVersionKind
     /// <summary>
     /// Exploratory versions are short lived zero-based versions of the form "0.0.0-0.explo".
     /// No ordering applies among them, they are intended to be used explicitly.
+    /// They must be compiled in Release mode, to use Debug versions, use their CI builds.
     /// </summary>
     Exploratory = 1,
 
     /// <summary>
     /// Alpha is the first, weakest, conformant prerelease name.
     /// <para>
-    /// It should be compiled in Debug and should bot be distributed on the "release channel"
+    /// It should be compiled in Debug and should not be distributed on the "release channel"
     /// (where stable versions go) but on "preview channels" that distribute <see cref="SVersion.IsCI"/>, <see cref="Exploratory"/>
     /// and any other releases up to <see cref="Papa"/>.
     /// </para>
@@ -168,12 +169,12 @@ public static class CSVersionKindExtensions
     ];
 
     /// <summary>
-    /// Gets the <see cref="SVersion.Prerelease"/> representation (in lower case). 
+    /// Gets the <see cref="SVersion.BranchName"/> representation (in lower case). 
     /// <see cref="CSVersionKind.None"/>, <see cref="CSVersionKind.Exploratory"/> and <see cref="CSVersionKind.Stable"/> are empty string.
     /// </summary>
     /// <param name="kind">This kind.</param>
     /// <returns>The prerelease name.</returns>
-    public static string ToPrerelease( this CSVersionKind kind ) => _names[(int)kind];
+    public static string ToBranchName( this CSVersionKind kind ) => _names[(int)kind];
 
     /// <summary>
     /// Tries to parse one of the "alpha"..."zulu" <see cref="CSVersionKind"/> names.
