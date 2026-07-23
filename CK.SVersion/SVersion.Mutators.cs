@@ -9,7 +9,7 @@ public partial class SVersion
 {
     /// <summary>
     /// Sets the <see cref="Major"/>, <see cref="Minor"/> and <see cref="Patch"/> numbers.
-    /// Other properties remains unchanged. See also <see cref="ForwardVersionNumbers(SVersionChange)"/>.
+    /// Other properties remains unchanged. See also <see cref="SetNextVersionNumbers(SVersionChange)"/>.
     /// </summary>
     /// <param name="major">The new major. Must not be negative.</param>
     /// <param name="minor">The new minor. Must not be negative.</param>
@@ -41,8 +41,60 @@ public partial class SVersion
     }
 
     /// <summary>
+    /// Checks whether <paramref name="next"/> Major.Minor.Patch follow this <see cref="Major"/>.<see cref="Minor"/>.<see cref="Patch"/>
+    /// under the rules of Semantic Versioning (single increment) and computes the <see cref="SVersionChange"/> from this version to next.
+    /// <para>
+    /// Only Major, Minor and Patch numbers are used. <see cref="Prerelease"/> is ignored.
+    /// </para>
+    /// </summary>
+    /// <param name="next">The next version.</param>
+    /// <param name="change">The version change between this and the next one.</param>
+    /// <returns>
+    /// True if next follows this version with the <paramref name="change"/> (that can be <see cref="SVersionChange.None"/>
+    /// if the Major, Minor and Patch numbers are equal), false otherwise.
+    /// </returns>
+    public bool IsPreviousVersionNumbersOf( SVersion next, out SVersionChange change )
+    {
+        if( _major == next._major )
+        {
+            if( _minor == next._minor )
+            {
+                if( _patch == next.Patch - 1 )
+                {
+                    change = SVersionChange.Patch;
+                    return true;
+                }
+                if( _patch == next.Patch )
+                {
+                    change = SVersionChange.None;
+                    return true;
+                }
+            }
+            else
+            {
+                if( _minor == next._minor - 1 && next._patch == 0 )
+                {
+                    change = SVersionChange.Minor;
+                    return true;
+                }
+            }
+        }
+        else
+        {
+            if( _major == next.Major - 1 && next.Minor == 0 && next.Patch == 0 )
+            {
+                change = SVersionChange.Major;
+                return true;
+            }
+        }
+        change = SVersionChange.None;
+        return false;
+    }
+
+    /// <summary>
     /// Applies the <see cref="SVersionChange"/> to the <see cref="Major"/>.<see cref="Minor"/>.<see cref="Patch"/> numbers.
     /// Other properties remains unchanged.
+    /// See also <see cref="IsPreviousVersionNumbersOf(SVersion, out SVersionChange)"/>.
     /// <para>
     /// When <see cref="Major"/> is 0, a <see cref="SVersionChange.Major"/> change impacts the <see cref="Minor"/> (applies the Semantic
     /// Versioning rule of the 0 initial version).
@@ -50,7 +102,7 @@ public partial class SVersion
     /// </summary>
     /// <param name="change">The change to apply. <see cref="SVersionChange.None"/> returns this version.</param>
     /// <returns>This or a new SVersion.</returns>
-    public SVersion ForwardVersionNumbers( SVersionChange change )
+    public SVersion SetNextVersionNumbers( SVersionChange change )
     {
         if( change is SVersionChange.None )
         {
@@ -79,7 +131,6 @@ public partial class SVersion
                              _hasInvalidMetadata,
                              _fourthPart );
     }
-
 
     /// <summary>
     /// Returns a new <see cref="SVersion"/> with the specified <see cref="ParsedPrefix"/>.

@@ -417,5 +417,75 @@ public class SVersionTests
         Should.Throw<InvalidOperationException>( () => SVersion.Parse( "1.2.3-a" ).SetBranchName( "alpha" ) );
     }
 
+    // Single increment follows: change is detected.
+    [TestCase( "1.2.3", "1.2.4", true, SVersionChange.Patch )]
+    [TestCase( "1.2.3", "1.2.3", true, SVersionChange.None )]
+    [TestCase( "1.2.3", "1.3.0", true, SVersionChange.Minor )]
+    [TestCase( "1.2.3", "2.0.0", true, SVersionChange.Major )]
+    // No special "0 major" rule here (unlike SetNextVersionNumbers): 0 -> 1 is a plain Major bump.
+    [TestCase( "0.2.3", "1.0.0", true, SVersionChange.Major )]
+    // Only Major.Minor.Patch are considered: Prerelease is ignored.
+    [TestCase( "1.2.3-alpha", "1.2.4-beta", true, SVersionChange.Patch )]
+    [TestCase( "1.2.3-alpha.1.ci.5", "1.2.3", true, SVersionChange.None )]
+    // Patch must be an exact +1 (or equal): jumps and decrements do not follow.
+    [TestCase( "1.2.3", "1.2.5", false, SVersionChange.None )]
+    [TestCase( "1.2.3", "1.2.2", false, SVersionChange.None )]
+    // Minor bump must be +1 AND reset Patch to 0.
+    [TestCase( "1.2.3", "1.4.0", false, SVersionChange.None )]
+    [TestCase( "1.2.3", "1.3.1", false, SVersionChange.None )]
+    [TestCase( "1.2.3", "1.1.0", false, SVersionChange.None )]
+    // Major bump must be +1 AND reset Minor and Patch to 0.
+    [TestCase( "1.2.3", "3.0.0", false, SVersionChange.None )]
+    [TestCase( "1.2.3", "2.1.0", false, SVersionChange.None )]
+    [TestCase( "1.2.3", "2.0.1", false, SVersionChange.None )]
+    [TestCase( "1.2.3", "0.0.0", false, SVersionChange.None )]
+    public void IsPreviousVersionNumbersOf_tests( string sFrom, string sNext, bool expected, SVersionChange expectedChange )
+    {
+        var from = SVersion.Parse( sFrom );
+        var next = SVersion.Parse( sNext );
+
+        from.IsPreviousVersionNumbersOf( next, out var change ).ShouldBe( expected );
+        change.ShouldBe( expectedChange );
+    }
+
+    [TestCase( "1.2.3", SVersionChange.Patch, "1.2.4" )]
+    [TestCase( "1.2.3", SVersionChange.Minor, "1.3.0" )]
+    [TestCase( "1.2.3", SVersionChange.Major, "2.0.0" )]
+    // When Major is 0, a Major change bumps the Minor (Semantic Versioning 0.x rule).
+    [TestCase( "0.2.3", SVersionChange.Major, "0.3.0" )]
+    [TestCase( "0.2.3", SVersionChange.Minor, "0.3.0" )]
+    [TestCase( "0.2.3", SVersionChange.Patch, "0.2.4" )]
+    // Prerelease and other data are preserved.
+    [TestCase( "1.2.3-alpha", SVersionChange.Patch, "1.2.4-alpha" )]
+    [TestCase( "1.2.3-alpha.1.ci.5", SVersionChange.Minor, "1.3.0-alpha.1.ci.5" )]
+    public void SetNextVersionNumbers_tests( string sFrom, SVersionChange change, string sExpected )
+    {
+        var from = SVersion.Parse( sFrom );
+        var expected = SVersion.Parse( sExpected );
+
+        from.SetNextVersionNumbers( change ).ShouldBe( expected );
+    }
+
+    [Test]
+    public void SetNextVersionNumbers_None_returns_this()
+    {
+        var v = SVersion.Parse( "1.2.3-alpha.1.ci.5" );
+        v.SetNextVersionNumbers( SVersionChange.None ).ShouldBeSameAs( v );
+    }
+
+    // For a positive Major, SetNextVersionNumbers and IsPreviousVersionNumbersOf are counterparts.
+    // (The 0-major Major rule breaks this symmetry, hence it is excluded here.)
+    [TestCase( "1.2.3", SVersionChange.Patch )]
+    [TestCase( "1.2.3", SVersionChange.Minor )]
+    [TestCase( "1.2.3", SVersionChange.Major )]
+    public void SetNextVersionNumbers_is_the_counterpart_of_IsPreviousVersionNumbersOf( string sFrom, SVersionChange change )
+    {
+        var from = SVersion.Parse( sFrom );
+        var next = from.SetNextVersionNumbers( change );
+
+        from.IsPreviousVersionNumbersOf( next, out var found ).ShouldBeTrue();
+        found.ShouldBe( change );
+    }
+
 
 }
