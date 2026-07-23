@@ -267,59 +267,7 @@ public partial class SVersion
         }
 
         var ciNumber = clearCINumber ? -1 : _ciNumber;
-        string newPrerelease;
-        if( _csKind is CSVersionKind.Exploratory )
-        {
-            var name = ExploratoryName;
-            if( ciNumber >= 0 )
-            {
-                newPrerelease = string.Create( CultureInfo.InvariantCulture, $"0.{name}.{number}.ci.{ciNumber}" );
-            }
-            else
-            {
-                if( number > 0 )
-                {
-                    newPrerelease = string.Create( CultureInfo.InvariantCulture, $"0.{name}.{number}" );
-                }
-                else
-                {
-                    newPrerelease = string.Create( CultureInfo.InvariantCulture, $"0.{name}" );
-                }
-            }
-        }
-        else
-        {
-            Debug.Assert( _csKind is >= CSVersionKind.Alpha and <= CSVersionKind.Zulu );
-            var name = _csKind.ToBranchName();
-            if( ciNumber >= 0 )
-            {
-                newPrerelease = string.Create( CultureInfo.InvariantCulture, $"{name}.{number}.ci.{ciNumber}" );
-            }
-            else
-            {
-                if( number > 0 )
-                {
-                    newPrerelease = string.Create( CultureInfo.InvariantCulture, $"{name}.{number}" );
-                }
-                else
-                {
-                    newPrerelease = name;
-                }
-            }
-        }
-        return new SVersion( null,
-                             null,
-                             _major,
-                             _minor,
-                             _patch,
-                             newPrerelease,
-                             _buildMetaData,
-                             _csKind,
-                             number,
-                             ciNumber,
-                             _hasFakeMetadata,
-                             _hasDeprecatedMetadata,
-                             _hasInvalidMetadata );
+        return SetConformantData( _csKind, ExploratoryName, number, ciNumber );
     }
 
     /// <summary>
@@ -436,6 +384,8 @@ public partial class SVersion
                                                  int ciNumber )
         {
             Debug.Assert( kind != CSVersionKind.None );
+            Debug.Assert( kind != CSVersionKind.Stable || (exploratoryName.Length == 0 && prereleaseNumber == 0) );
+            Debug.Assert( (kind == CSVersionKind.Exploratory) == (exploratoryName.Length > 0) );
 
             if( kind == CSVersionKind.Stable )
             {
