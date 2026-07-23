@@ -251,10 +251,10 @@ public partial class SVersion
     /// </summary>
     /// <param name="number">Must be 0 or positive.</param>
     /// <param name="clearCINumber">
-    /// False to keep the current <see cref="CINumber"/>, false to clear it (the returned version is not CI build version).
+    /// By default, the current <see cref="CINumber"/> is kept. Set it to true to clear it (the returned version is not CI build version).
     /// </param>
     /// <returns>This or a new SVersion.</returns>
-    public SVersion SetPrereleaseNumber( int number, bool clearCINumber )
+    public SVersion SetPrereleaseNumber( int number, bool clearCINumber = false )
     {
         ArgumentOutOfRangeException.ThrowIfNegative( number );
         if( !IsCSVersion ) throw new InvalidOperationException( "Can be called only on Conformant SVersion." );
