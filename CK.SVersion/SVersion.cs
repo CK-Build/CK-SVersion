@@ -239,7 +239,12 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     public int PrereleaseNumber => _csPrereleaseNumber;
 
     /// <summary>
-    /// Returns the exploratory name if <see cref="VersionKind"/> is <see cref="CSVersionKind.Exploratory"/>, the empty span otherwise.
+    /// Gets the exploratory name if <see cref="VersionKind"/> is <see cref="CSVersionKind.Exploratory"/>,
+    /// the empty span otherwise.
+    /// <para>
+    /// The exploratory name is a non-empty, single identifier (no dots) composed of ASCII alphanumeric
+    /// characters and hyphens (<c>[0-9A-Za-z\-]+</c>) that must contain at least one non-digit character.
+    /// </para>
     /// </summary>
     public ReadOnlySpan<char> ExploratoryName
     {

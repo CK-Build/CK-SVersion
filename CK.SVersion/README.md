@@ -22,6 +22,8 @@ To be "conformant", a SVersion is either:
   possible Semantic Version) and `0.0.0-1`.
   - Exploratory versions must not be considered ordered: `0.0.0-0.explo` is not better/greater than `0.0.0-0.after-the-battle`.
   - They also can be numbered (like prereleases): `0.0.0-0.explo.1`, `0.0.0-0.explo.2`, etc.
+  - A valid exploratory name is a non-empty string with a single identifier (no dots) composed of ASCII alphanumeric
+    characters and hyphens (<c>[0-9A-Za-z\-]+</c>) that must contain at least one non-digit character. 
 - A CI build of any of the previous forms. CI builds are "post-release" versions that have an incremental number (based on a
   number of commits, this number is allowed to be 0 - the CI build is on the same code base as its base version).
   Below, the CI build number is `42`.
@@ -43,7 +45,7 @@ https://iscinumpy.dev/post/bound-version-constraints/ for a very good overview o
 the numerous aspects and complexities of managing versions.
 
 This package introduces a mathematically sound version range model:  the [`SVersionBound`](SVersionBound.cs) is a
-constraint that is an element of a [lattice](https://en.wikipedia.org/wiki/Lattice_(order).
+constraint that is an element of a [lattice](https://en.wikipedia.org/wiki/Lattice_%28order%29).
 
 A bound is defined by:
 - A `Base` version tha defaults to the `0.0.0-0` zero version. Accepted versions must be equal or greater to the base version.
@@ -62,7 +64,7 @@ Two `SVersionBound` can be unioned and intersected to produce another `SVersionB
 parsing (`ParseResult NugetTryParse( ReadOnlySpan<char> s )` and `ParseResult NpmTryParse( ReadOnlySpan<char> s, bool includePrerelease = false )`).
 Projections and parsing are what they are and can certainly be discussed and enhanced.
 
-A (theroretically) important thing that is currently missing is a `SVersionBoundFormula` that would be a logical proposition of more than one `SVersionBound`
+A (theoretically) important thing that is currently missing is a `SVersionBoundFormula` that would be a logical proposition of more than one `SVersionBound`
 connected by `or`, `and` (and even `not`) operators to express complex and composite bounds. In practice this is useless.
 
 

@@ -304,4 +304,118 @@ public class SVersionTests
         from.SetPrereleaseNumber( 42, clearCINumber: true ).ShouldBe( to.SetCINumber( -1 ) );
     }
 
+    [TestCase( "0.0.0-0.explo", "feat", "0.0.0-0.feat" )]
+    [TestCase( "0.0.0-0.explo.3", "feat", "0.0.0-0.feat.3" )]
+    [TestCase( "0.0.0-0.explo.0.ci.5", "feat", "0.0.0-0.feat.0.ci.5" )]
+    [TestCase( "0.0.0-0.explo.3.ci.5", "feat", "0.0.0-0.feat.3.ci.5" )]
+    [TestCase( "1.2.3-alpha", "feat", "1.2.3-0.feat" )]           // PrereleaseNumber=0 from prerelease
+    [TestCase( "1.2.3-alpha.7", "feat", "1.2.3-0.feat.7" )]       // PrereleaseNumber preserved
+    [TestCase( "1.2.3-alpha.7.ci.2", "feat", "1.2.3-0.feat.7.ci.2" )]
+    [TestCase( "1.2.3", "feat", "1.2.3-0.feat" )]                 // PrereleaseNumber=0 from stable
+    [TestCase( "1.2.3--ci.5", "feat", "1.2.3-0.feat.0.ci.5" )]   // CINumber preserved from stable CI
+    [TestCase( "0.0.0-0.explo", "explo/feat", "0.0.0-0.feat" )]   // strips "explo/" prefix
+    public void SetExploratoryName_tests( string sFrom, string name, string sExpected )
+    {
+        var from = SVersion.Parse( sFrom );
+        var expected = SVersion.Parse( sExpected );
+
+        var result = from.SetExploratoryName( name );
+        result.ShouldBe( expected );
+        result.VersionKind.ShouldBe( CSVersionKind.Exploratory );
+
+        var cleanName = name.StartsWith( "explo/", StringComparison.OrdinalIgnoreCase ) ? name.Substring( 6 ) : name;
+        result.ExploratoryName.ToString().ShouldBe( cleanName );
+    }
+
+    [Test]
+    public void SetExploratoryName_returns_this_when_name_unchanged()
+    {
+        var v = SVersion.Parse( "0.0.0-0.explo.3.ci.5" );
+        v.SetExploratoryName( "explo" ).ShouldBeSameAs( v );
+        v.SetExploratoryName( "explo/explo" ).ShouldBeSameAs( v );
+    }
+
+    [Test]
+    public void SetExploratoryName_throws_on_invalid_input()
+    {
+        var v = SVersion.Parse( "0.0.0-0.explo" );
+        Should.Throw<ArgumentException>( () => v.SetExploratoryName( "" ) );
+        Should.Throw<ArgumentException>( () => v.SetExploratoryName( "123" ) );   // purely numeric
+        Should.Throw<ArgumentException>( () => v.SetExploratoryName( "a.b" ) );   // contains dots
+        Should.Throw<InvalidOperationException>( () => SVersion.Parse( "1.2.3-a" ).SetExploratoryName( "feat" ) );
+    }
+
+    [TestCase( "0.0.0-0.explo", CSVersionKind.Alpha, "0.0.0-alpha" )]          // PrereleaseNumber=0
+    [TestCase( "0.0.0-0.explo.3", CSVersionKind.Alpha, "0.0.0-alpha.3" )]
+    [TestCase( "0.0.0-0.explo.3.ci.5", CSVersionKind.Alpha, "0.0.0-alpha.3.ci.5" )]
+    [TestCase( "1.2.3-bravo", CSVersionKind.Alpha, "1.2.3-alpha" )]
+    [TestCase( "1.2.3-bravo.7", CSVersionKind.Alpha, "1.2.3-alpha.7" )]
+    [TestCase( "1.2.3-bravo.7.ci.2", CSVersionKind.Alpha, "1.2.3-alpha.7.ci.2" )]
+    [TestCase( "1.2.3", CSVersionKind.Alpha, "1.2.3-alpha" )]                  // PrereleaseNumber=0 from stable
+    [TestCase( "1.2.3--ci.5", CSVersionKind.Alpha, "1.2.3-alpha.0.ci.5" )]    // CINumber preserved from stable CI
+    public void SetBranchName_kind_tests( string sFrom, CSVersionKind kind, string sExpected )
+    {
+        var from = SVersion.Parse( sFrom );
+        var expected = SVersion.Parse( sExpected );
+
+        var result = from.SetBranchName( kind );
+        result.ShouldBe( expected );
+        result.VersionKind.ShouldBe( kind );
+    }
+
+    [Test]
+    public void SetBranchName_kind_returns_this_when_kind_unchanged()
+    {
+        var v = SVersion.Parse( "1.2.3-alpha.7.ci.2" );
+        v.SetBranchName( CSVersionKind.Alpha ).ShouldBeSameAs( v );
+    }
+
+    [Test]
+    public void SetBranchName_kind_throws_on_invalid_input()
+    {
+        var v = SVersion.Parse( "1.2.3-alpha" );
+        Should.Throw<ArgumentException>( () => v.SetBranchName( CSVersionKind.None ) );
+        Should.Throw<ArgumentException>( () => v.SetBranchName( CSVersionKind.Stable ) );
+        Should.Throw<InvalidOperationException>( () => SVersion.Parse( "1.2.3-a" ).SetBranchName( CSVersionKind.Alpha ) );
+    }
+
+    [TestCase( "1.2.3-alpha", "", "1.2.3" )]                               // PrereleaseNumber resets to 0
+    [TestCase( "1.2.3-alpha.7", "", "1.2.3" )]                             // PrereleaseNumber resets to 0
+    [TestCase( "1.2.3-alpha.7.ci.2", "", "1.2.3--ci.2" )]                 // CINumber preserved
+    [TestCase( "1.2.3", "alpha", "1.2.3-alpha" )]
+    [TestCase( "1.2.3-bravo.7.ci.2", "alpha", "1.2.3-alpha.7.ci.2" )]
+    [TestCase( "1.2.3-bravo.7.ci.2", "ALPHA", "1.2.3-alpha.7.ci.2" )]    // case-insensitive
+    [TestCase( "1.2.3-alpha.7.ci.2", "explo/feat", "1.2.3-0.feat.7.ci.2" )]
+    [TestCase( "1.2.3-alpha.7.ci.2", "EXPLO/feat", "1.2.3-0.feat.7.ci.2" )] // case-insensitive prefix
+    public void SetBranchName_string_tests( string sFrom, string branchName, string sExpected )
+    {
+        var from = SVersion.Parse( sFrom );
+        var expected = SVersion.Parse( sExpected );
+
+        from.SetBranchName( branchName ).ShouldBe( expected );
+    }
+
+    [Test]
+    public void SetBranchName_string_returns_this_when_unchanged()
+    {
+        var stable = SVersion.Parse( "1.2.3" );
+        stable.SetBranchName( "" ).ShouldBeSameAs( stable );
+
+        var prerelease = SVersion.Parse( "1.2.3-alpha.7.ci.2" );
+        prerelease.SetBranchName( "alpha" ).ShouldBeSameAs( prerelease );
+
+        var explo = SVersion.Parse( "0.0.0-0.explo.3.ci.5" );
+        explo.SetBranchName( "explo/explo" ).ShouldBeSameAs( explo );
+    }
+
+    [Test]
+    public void SetBranchName_string_throws_on_invalid_input()
+    {
+        var v = SVersion.Parse( "1.2.3-alpha" );
+        Should.Throw<ArgumentException>( () => v.SetBranchName( "notabranchname" ) );
+        Should.Throw<ArgumentException>( () => v.SetBranchName( "explo/" ) );   // empty exploratory name
+        Should.Throw<InvalidOperationException>( () => SVersion.Parse( "1.2.3-a" ).SetBranchName( "alpha" ) );
+    }
+
+
 }

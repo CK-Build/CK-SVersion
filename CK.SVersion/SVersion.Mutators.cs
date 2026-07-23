@@ -326,7 +326,7 @@ public partial class SVersion
     /// Sets the <see cref="BranchName"/> to be "explo/<paramref name="name"/>" and <see cref="VersionKind"/> to <see cref="CSVersionKind.Exploratory"/>.
     /// The <see cref="PrereleaseNumber"/> and <see cref="CINumber"/> are preserved.
     /// <para>
-    /// The name parameter may start with "explo/".
+    /// The name parameter may start with "explo/" (will be skipped).
     /// </para>
     /// <para>
     /// <see cref="IsCSVersion"/> must be true otherwise a <see cref="InvalidOperationException"/> is thrown.
@@ -334,7 +334,29 @@ public partial class SVersion
     /// </summary>
     /// <param name="name">The <see cref="ExploratoryName"/> or the exploratory branch name "explo/<see cref="ExploratoryName"/>".</param>
     /// <returns>This or a new SVersion.</returns>
-    public SVersion SetExploratoryName( string name ) { }
+    public SVersion SetExploratoryName( string name )
+    {
+        if( !IsCSVersion ) throw new InvalidOperationException( "Can be called only on Conformant SVersion." );
+        ArgumentNullException.ThrowIfNull( name );
+
+        if( name.StartsWith( "explo/", StringComparison.OrdinalIgnoreCase ) )
+            name = name.Substring( 6 );
+
+        if( _csKind == CSVersionKind.Exploratory && ExploratoryName.Equals( name, StringComparison.Ordinal ) )
+            return this;
+
+        if( name.Length == 0 )
+            throw new ArgumentException( "Exploratory name must not be empty.", nameof( name ) );
+        if( name.Contains( '.' ) )
+            throw new ArgumentException( "Exploratory name must not contain dots.", nameof( name ) );
+        var nameError = ValidateDottedIdentifiers( name.AsSpan(), "exploratory name" );
+        if( nameError != null )
+            throw new ArgumentException( nameError, nameof( name ) );
+        if( !name.AsSpan().ContainsAnyExcept( "0123456789" ) )
+            throw new ArgumentException( "Exploratory name must not be purely numeric.", nameof( name ) );
+
+        return SetConformantData( CSVersionKind.Exploratory, name, _csPrereleaseNumber, _ciNumber );
+    }
 
     /// <summary>
     /// Sets the <see cref="BranchName"/> and the <see cref="CSVersionKind"/> to one of the <see cref="CSVersionKind.Alpha"/>...<see cref="CSVersionKind.Zulu"/>
@@ -351,7 +373,16 @@ public partial class SVersion
     /// <see cref="IsCSVersion"/> must be true otherwise a <see cref="InvalidOperationException"/> is thrown.
     /// </para>
     /// <returns>This or a new SVersion.</returns>
-    public SVersion SetBranchName( CSVersionKind prereleaseName ) { }
+    public SVersion SetBranchName( CSVersionKind prereleaseName )
+    {
+        if( !IsCSVersion ) throw new InvalidOperationException( "Can be called only on Conformant SVersion." );
+        if( prereleaseName is < CSVersionKind.Alpha or > CSVersionKind.Zulu )
+            throw new ArgumentException( $"Must be between Alpha and Zulu, got '{prereleaseName}'.", nameof( prereleaseName ) );
+
+        return _csKind == prereleaseName
+                ? this
+                : SetConformantData( prereleaseName, default, _csPrereleaseNumber, _ciNumber );
+    }
 
     /// <summary>
     /// Sets the <see cref="BranchName"/> that must be a valid one: either a "explo/<see cref="ExploratoryName"/>" or one of the
@@ -366,5 +397,68 @@ public partial class SVersion
     /// Any other value throws an <see cref="ArgumentException"/>.
     /// </param>
     /// <returns>This or a new SVersion.</returns>
-    public SVersion SetBranchName( string validBranchName ) { }
+    public SVersion SetBranchName( string validBranchName )
+    {
+        ArgumentNullException.ThrowIfNull( validBranchName );
+
+        if( validBranchName.Length == 0 )
+        {
+            if( _csKind == CSVersionKind.Stable ) return this;
+            if( !IsCSVersion ) throw new InvalidOperationException( "Can be called only on Conformant SVersion." );
+            return SetConformantData( CSVersionKind.Stable, default, 0, _ciNumber );
+        }
+        if( validBranchName.StartsWith( "explo/", StringComparison.OrdinalIgnoreCase ) )
+            return SetExploratoryName( validBranchName );
+        if( CSVersionKindExtensions.TryParse( validBranchName, out var kind ) )
+            return SetBranchName( kind );
+
+        throw new ArgumentException( $"'{validBranchName}' is not a valid branch name.", nameof( validBranchName ) );
+    }
+
+    SVersion SetConformantData( CSVersionKind kind, ReadOnlySpan<char> exploratoryName, int prereleaseNumber, int ciNumber )
+    {
+        Debug.Assert( IsCSVersion );
+        Debug.Assert( _fourthPart == -1 );
+        return new SVersion( null, null,
+                             _major, _minor, _patch,
+                             BuildConformantPrerelease( kind, exploratoryName, prereleaseNumber, ciNumber ),
+                             _buildMetaData,
+                             kind,
+                             prereleaseNumber,
+                             ciNumber,
+                             _hasFakeMetadata,
+                             _hasDeprecatedMetadata,
+                             _hasInvalidMetadata );
+
+        static string BuildConformantPrerelease( CSVersionKind kind,
+                                                 ReadOnlySpan<char> exploratoryName,
+                                                 int prereleaseNumber,
+                                                 int ciNumber )
+        {
+            Debug.Assert( kind != CSVersionKind.None );
+
+            if( kind == CSVersionKind.Stable )
+            {
+                return ciNumber >= 0
+                    ? $"-ci.{ciNumber}"
+                    : "";
+            }
+
+            string head = kind == CSVersionKind.Exploratory
+                            ? $"0.{exploratoryName}"
+                            : kind.ToBranchName();
+
+            if( ciNumber >= 0 )
+            {
+                return prereleaseNumber > 0
+                    ? $"{head}.{prereleaseNumber}.ci.{ciNumber}"
+                    : $"{head}.0.ci.{ciNumber}";
+            }
+
+            return prereleaseNumber > 0
+                        ? $"{head}.{prereleaseNumber}"
+                        : head;
+        }
+    }
+
 }
