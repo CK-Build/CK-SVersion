@@ -108,12 +108,19 @@ public class SVersionTests
 
     // allowTrailingSuffix: true.
     [TestCase( "v0.0.0-alpha", '=', "0.0.0-alpha ignored" )]
+    [TestCase( "v0.0.0-alpha", '=', "0.0.0-alpha+some-meta ignored" )]
 
     // Exploratories are in the "0.0.0-0"-"0.0.0-1" range. 
     [TestCase( "0.0.0-0", '<', "0.0.0-0.explo" )]
     [TestCase( "0.0.0-0", '<', "0.0.0-0.another-explo" )]
     [TestCase( "0.0.0-0.explo", '<', "0.0.0-1" )]
     [TestCase( "0.0.0-1", '<', "0.0.0-alpha" )]
+
+    // BuildMetadata doesn't count.
+    [TestCase( "v1.2.3", '=', "1.2.3+fake" )]
+    [TestCase( "v1.2.3", '=', "1.2.3+invalid" )]
+    [TestCase( "v1.2.3", '=', "1.2.3+deprecated" )]
+    [TestCase( "v1.2.3", '=', "1.2.3+any" )]
 
     // Stable -> CI.
     // This uses the double dash trick and the Patch is incremented by one.

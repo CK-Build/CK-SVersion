@@ -1101,7 +1101,7 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
 
     /// <summary>
     /// Versions are equal if and only if <see cref="IsValid"/>, <see cref="Major"/>, <see cref="Minor"/>,
-    /// <see cref="Patch"/> and <see cref="Prerelease"/> are equals. <see cref="BuildMetaData"/> is ignored.
+    /// <see cref="Patch"/>, <see cref="FourthPart"/> and <see cref="Prerelease"/> are equals. <see cref="BuildMetaData"/> is ignored.
     /// No other members are used for equality and comparison.
     /// </summary>
     /// <param name="other">Other version.</param>
@@ -1118,6 +1118,7 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
         return Major == other.Major &&
                Minor == other.Minor &&
                Patch == other.Patch &&
+               FourthPart == other.FourthPart &&
                Prerelease == other.Prerelease;
     }
 
