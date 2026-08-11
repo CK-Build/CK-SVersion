@@ -495,4 +495,31 @@ public class SVersionTests
     }
 
 
+    [TestCase( "1.0.0", "1.0.0--ci.1", true )]
+    [TestCase( "1.0.0", "1.0.1--ci.0", true )]
+    [TestCase( "1.0.0", "1.1.0--ci.4", true )]
+    [TestCase( "1.0.0", "2.0.0--ci.4", true )]
+
+    [TestCase( "1.0.0", "1.0.2--ci.4", false )]
+    [TestCase( "1.0.0", "1.1.1--ci.4", false )]
+    [TestCase( "1.0.0", "2.0.1--ci.4", false )]
+    [TestCase( "1.0.0", "2.1.0--ci.4", false )]
+    [TestCase( "1.0.0", "3.0.0--ci.4", false )]
+
+    [TestCase( "1.0.0", "1.0.0-any", true )]
+    [TestCase( "1.0.0", "1.0.1", true )]
+    [TestCase( "1.0.0", "1.0.1-any", true )]
+    [TestCase( "1.0.0", "1.1.0", true )]
+    [TestCase( "1.0.0", "1.1.0-any", true )]
+    [TestCase( "1.0.0", "2.0.0", true )]
+    [TestCase( "1.0.0", "2.0.0-any", true )]
+
+    public void IsStableRoughBaseOf( string stable, string target, bool isStableRoughBase )
+    {
+        var v = SVersion.Parse( stable );
+        var t = SVersion.Parse( target );
+        v.IsStableRoughBaseOf( t ).ShouldBe( isStableRoughBase );
+    }
+
+
 }

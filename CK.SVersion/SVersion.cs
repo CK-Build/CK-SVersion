@@ -348,10 +348,10 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
         if( _major == target._major )
         {
             return _minor == target._minor
-                    ? _patch == target._patch || _patch == target._patch + 1
-                    : _minor == target._minor + 1 && target._patch == 0;
+                    ? _patch == target._patch || _patch == target._patch - 1
+                    : _minor == target._minor - 1 && target._patch == 0;
         }
-        return _major == target._major + 1 && target._minor == 0 && target._patch == 0;
+        return _major == target._major - 1 && target._minor == 0 && target._patch == 0;
     }
 
     /// <summary>
