@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Linq;
 
 namespace CK.Core;
 
@@ -61,6 +62,7 @@ public enum CSVersionKind
 
     /// <summary>
     /// Exploratory versions are short lived zero-based versions of the form "0.0.0-0.explo".
+    /// This may be used for A/B testing like "0.0.0-0.with-compression" and "0.0.0-0.without-compression".
     /// No ordering applies among them, they are intended to be used explicitly.
     /// They must be compiled in Release mode, to use Debug versions, use their CI builds.
     /// </summary>
@@ -173,11 +175,24 @@ public static class CSVersionKindExtensions
     /// <see cref="CSVersionKind.None"/>, <see cref="CSVersionKind.Exploratory"/> and <see cref="CSVersionKind.Stable"/> are empty string.
     /// </summary>
     /// <param name="kind">This kind.</param>
-    /// <returns>The prerelease name.</returns>
+    /// <returns>The branch name.</returns>
     public static string ToBranchName( this CSVersionKind kind ) => _names[(int)kind];
 
     /// <summary>
-    /// Tries to parse one of the "alpha"..."zulu" <see cref="CSVersionKind"/> names.
+    /// Gets the kind name (in lower case) including the non-branch names "stable" and "explo".
+    /// <see cref="CSVersionKind.None"/> is always an empty string.
+    /// </summary>
+    /// <param name="kind">This kind.</param>
+    /// <returns>The kind name.</returns>
+    public static string ToKindName( this CSVersionKind kind ) => kind == CSVersionKind.Stable
+                                                                            ? "stable"
+                                                                            : kind == CSVersionKind.Exploratory
+                                                                                ? "explo"
+                                                                                : _names[(int)kind];
+            
+    /// <summary>
+    /// Tries to parse the <see cref="ToKindName(CSVersionKind)"/>: "alpha"..."zulu" <see cref="CSVersionKind"/> names, "explo"
+    /// for <see cref="CSVersionKind.Exploratory"/> and "stable" for <see cref="CSVersionKind.Stable"/>.
     /// </summary>
     /// <param name="s">This string to parse.</param>
     /// <param name="kind">The resulting kind.</param>
@@ -195,8 +210,9 @@ public static class CSVersionKindExtensions
     }
 
     /// <summary>
-    /// Tries to match one of the "alpha"..."zulu" <see cref="CSVersionKind"/> names.
-    /// The head is fowarded on success.
+    /// Tries to match one of the kind name: "alpha"..."zulu" <see cref="CSVersionKind"/> names, "explo" for <see cref="CSVersionKind.Exploratory"/>
+    /// and "stable" for <see cref="CSVersionKind.Stable"/>.
+    /// The head is forwarded on success.
     /// </summary>
     /// <param name="head">This head.</param>
     /// <param name="kind">The resulting kind. Unchanged on failure.</param>
@@ -205,15 +221,27 @@ public static class CSVersionKindExtensions
     public static bool TryMatch( ref ReadOnlySpan<char> head, ref CSVersionKind kind, StringComparison comparisonType = StringComparison.OrdinalIgnoreCase )
     {
         Debug.Assert( (int)CSVersionKind.Alpha == 2 && (int)CSVersionKind.Zulu == 27 );
-        for( int i = 2; i <= 27; ++i )
+        Debug.Assert( _names.Skip(2).Take(26).Min( name => name.Length ) == 4 );
+        Debug.Assert( _names[6] == "echo" && _names[20] == "sierra" );
+
+        if( head.Length < 4  ) return false;
+        int idx = head[0] - (head[0] >= 'a' ? 'a' : 'A') + 2;
+        if( idx < 2 || idx > 27  ) return false;
+        
+        if( head.TryMatch( _names[idx], comparisonType ) )
         {
-            var c = _names[i];
-            if( head.StartsWith( c, comparisonType ) )
-            {
-                head = head.Slice( c.Length );
-                kind = (CSVersionKind)i;
-                return true;
-            }
+            kind = (CSVersionKind)idx;
+            return true;
+        }
+        if( idx == 6 && head.TryMatch( "explo", comparisonType ) )
+        {
+            kind = CSVersionKind.Exploratory;
+            return true;
+        }
+        if( idx == 20 && head.TryMatch( "stable", comparisonType ) )
+        {
+            kind = CSVersionKind.Stable;
+            return true;
         }
         return false;
     }

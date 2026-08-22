@@ -279,7 +279,7 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
 
 
     /// <summary>
-    /// Gets whether this version is a CI build version (a "post-build" version):
+    /// Gets whether this Conformant SVersion is a CI build version (a "post-build" version):
     /// <see cref="CINumber"/> is 0 or positive.
     /// </summary>
     public bool IsCI => _ciNumber >= 0;
