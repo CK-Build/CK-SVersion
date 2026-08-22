@@ -1,5 +1,5 @@
 # SVersion
-This package implements a `SVersion` class that fully conforms to https://semver.org/ (v2.0.0)
+This package implements a [`SVersion`](SVersion.cs) class that fully conforms to https://semver.org/ (v2.0.0)
 and has extensions to support "Conformant SVersion" that is a subset of Semantic Versioning 2.0.0.
 
 > ⚠ Semantic Versioning 2.0.0 says nothing about casing. NuGet consider version to be case insensitive, so
@@ -24,13 +24,13 @@ To be "conformant", a SVersion is either:
   - They also can be numbered (like prereleases): `0.0.0-0.explo.1`, `0.0.0-0.explo.2`, etc.
   - A valid exploratory name is a non-empty string with a single identifier (no dots) composed of ASCII alphanumeric
     characters and hyphens (<c>[0-9A-Za-z\-]+</c>) that must contain at least one non-digit character. 
-- A CI build of any of the previous forms. CI builds are "post-release" versions that have an incremental number (based on a
-  number of commits, this number is allowed to be 0 - the CI build is on the same code base as its base version).
+- A CI build of any of the previous forms. CI builds are "post-release" versions that have an incremental number (in practice based on 
+  the longest commits path from a commit to its base, this number is allowed to be 0 - the CI build is on the same code base as its base version).
   Below, the CI build number is `42`.
   - CI build for stable increments the Major, Minor or Patch and uses a double dash:
-    - `1.2.3--ci.42` is the CI build n°42 of a potential fix after `1.2.3`.
-    - `1.3.0--ci.42` is the CI build n°42 of a potential feature after `1.2.3`.
-    - `2.0.0--ci.42` is the CI build n°42 of a potential breaking change after `1.2.3`.
+    - `1.2.3--ci.42` is the CI build n°42 of a *potential fix* after `1.2.2`.
+    - `1.3.0--ci.42` is the CI build n°42 of a *potential feature* after any `1.2.X`.
+    - `2.0.0--ci.42` is the CI build n°42 of a *potential breaking change* after any `1.X.Y`.
   - CI build for Conformant prereleases or exploratory versions appends a `.ci.` numbered suffix:
     - For numbered prereleases:
       - `1.2.3-papa.1.ci.42` after `1.2.3-papa.1`.
@@ -38,6 +38,9 @@ To be "conformant", a SVersion is either:
     - A non numbered prerelease or exploratory requires a `.0` dot separated identifier:
       - It is `1.2.3-alpha.0.ci.42` after `1.2.3-alpha`,
       - and `0.0.0-0.explo.0.ci.42` after `0.0.0-0.explo`.
+
+The [`CSVersionKind`](CSVersionKind.cs) enumeration models the different kind of Conformant SVersion, and
+`SVersion.IsCI`, `SVersion.CINumber` (and `SVersion.SetCINumber()` immutable updater) handle Conformant CI versions.
 
 ## Version ranges, NuGet and Npm support.
 Versions are useless without **Version Ranges**. Nothing is simple in this domain: see 
@@ -48,7 +51,7 @@ This package introduces a mathematically sound version range model:  the [`SVers
 constraint that is an element of a [lattice](https://en.wikipedia.org/wiki/Lattice_%28order%29).
 
 A bound is defined by:
-- A `Base` version tha defaults to the `0.0.0-0` zero version. Accepted versions must be equal or greater to the base version.
+- A `Base` version that defaults to the `0.0.0-0` zero version. Accepted versions must be equal or greater to the base version.
 - A `Lock` that applies to Major, Minor, Patch numbers and defaults to "None". See [`SVersionLock`](SVersionLock.cs).
 - A `MinPrelease` name that defaults to "0". Accepted versions must be stable or have a prerelease equal or greater to
   this MinPrelease (according to https://semver.org/#spec-item-11).
@@ -60,12 +63,21 @@ Two `SVersionBound` can be unioned and intersected to produce another `SVersionB
 `0.0.0-0[AllowCI]` is the `SVersionBound.All`. It accepts any version (no restriction): it is the absorbing element of the
 **Union** operation and the neutral element of the **Intersect**.
 
-`SVersionBound` supports projections to NuGet and Npm version range representations: `ToNuGetString()` and `ToNpmString()` and
+`SVersionBound` supports projections to *NuGet* and *Npm* version range representations: `ToNuGetString()` and `ToNpmString()` and
 parsing (`ParseResult NugetTryParse( ReadOnlySpan<char> s )` and `ParseResult NpmTryParse( ReadOnlySpan<char> s, bool includePrerelease = false )`).
 Projections and parsing are what they are and can certainly be discussed and enhanced.
 
 A (theoretically) important thing that is currently missing is a `SVersionBoundFormula` that would be a logical proposition of more than one `SVersionBound`
 connected by `or`, `and` (and even `not`) operators to express complex and composite bounds. In practice this is useless.
+
+## Version filers.
+The [`CSVersionKindFilter`](CSVersionKindFilter.cs) is a basic filter that can be used to route (accepts/rejects) packages to feeds.
+It applies only to Conformant SVersions and explicitly handles CI vs. regular builds. Examples:
+- `[,],AllowCI` or `[explo,stable],AllowCI`: Any version is accepted.
+- `[,explo],AllowCI` or `[explo,explo],AllowCI`: Accepts version below alpha and their CI builds: this is the configuration of a pure "Exploratory" feed.
+
+_Note:_ A filter that applies to any SVersion must rely solely on the prerelease string and its precedence rules. This works but cannot handle CI vs. regular
+builds (for regular SVersions, CI are just prereleases).
 
 
 

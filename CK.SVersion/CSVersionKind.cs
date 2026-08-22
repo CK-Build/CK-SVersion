@@ -48,8 +48,8 @@ namespace CK.Core;
 ///     </item>
 /// </list>
 /// <para>
-/// Use <see cref="CSVersionKindExtensions.TryMatch(ref ReadOnlySpan{char}, ref CK.Core.CSVersionKind, StringComparison)"/> and
-/// <see cref="CSVersionKindExtensions.TryParse(ReadOnlySpan{char}, out CK.Core.CSVersionKind, StringComparison)"/> to parse kind
+/// Use <see cref="CSVersionKindExtensions.TryMatch(ref ReadOnlySpan{char}, ref CSVersionKind, StringComparison)"/> and
+/// <see cref="CSVersionKindExtensions.TryParse(ReadOnlySpan{char}, out CSVersionKind, StringComparison)"/> to parse kind
 /// names.
 /// </para>
 /// </summary>
