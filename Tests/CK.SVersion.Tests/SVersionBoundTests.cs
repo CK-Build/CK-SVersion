@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Shouldly;
+using System;
 
 namespace CK.Core.Tests;
 
