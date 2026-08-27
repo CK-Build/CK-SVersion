@@ -13,5 +13,5 @@ version-range lattice, and the `CSVersionKindFilter` used to route packages to f
 
 Tests live in [`Tests/CK.SVersion.Tests`](Tests/CK.SVersion.Tests).
 
-This repository is a dependency of [`CKli`](../CKli/README.md) — see the
-[Stack-level README](../README.md) for how it fits into this Stack.
+This repository is a dependency of [`CKli`](https://github.com/CK-Build/CKli/blob/stable/README.md) — see the
+[Stack-level README](https://github.com/CK-Build/CKli-Stack/blob/main/README.md) for how it fits into this Stack.
