@@ -70,7 +70,7 @@ Projections and parsing are what they are and can certainly be discussed and enh
 A (theoretically) important thing that is currently missing is a `SVersionBoundFormula` that would be a logical proposition of more than one `SVersionBound`
 connected by `or`, `and` (and even `not`) operators to express complex and composite bounds. In practice this is useless.
 
-## Version filers.
+## Version filters.
 The [`CSVersionKindFilter`](CSVersionKindFilter.cs) is a basic filter that can be used to route (accepts/rejects) packages to feeds.
 It applies only to Conformant SVersions and explicitly handles CI vs. regular builds. Examples:
 - `[,],AllowCI` or `[explo,stable],AllowCI`: Any version is accepted.
@@ -80,4 +80,7 @@ _Note:_ A filter that applies to any SVersion must rely solely on the prerelease
 builds (for regular SVersions, CI are just prereleases).
 
 
+## PackageInstance
+The [`PackageInstance`](PackageInstance.cs) is a basic concrete and base class that models a package identifier (case insensitive string) and a version.
+It can be used for any package management system.   
 
