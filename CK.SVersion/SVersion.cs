@@ -318,9 +318,16 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     public bool HasInvalidMetadata => _hasInvalidMetadata;
 
     /// <summary>
-    /// Gets whether this version is a "rough base" of the target. This version MUST be <see cref="SVersion.IsStable"/> otherwise
-    /// an <see cref="InvalidOperationException"/> is thrown. The target is roughly based on this version if it has
-    /// the same Major.Minor.Patch or any valid increment (Major+1.0.0, Major.Minor+1.0 or Major.Minor.Patch+1).
+    /// Gets whether this version has the same <see cref="Major"/>.<see cref="Minor"/>.<see cref="Patch"/> numbers
+    /// as the other one.
+    /// </summary>
+    /// <param name="other">The other version.</param>
+    /// <returns>Whether Major.Minor.Patch are the same.</returns>
+    public bool SameStableAs( SVersion other )
+    {
+        return _major == other._major && _minor == other._minor && _patch == other._patch;
+    }
+
     /// <summary>
     /// Gets whether this version is a "rough base" of the other one. This version MUST be <see cref="SVersion.IsStable"/> otherwise
     /// an <see cref="InvalidOperationException"/> is thrown. The other is roughly based on this version if it has
