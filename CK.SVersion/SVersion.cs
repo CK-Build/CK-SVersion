@@ -321,37 +321,40 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     /// Gets whether this version is a "rough base" of the target. This version MUST be <see cref="SVersion.IsStable"/> otherwise
     /// an <see cref="InvalidOperationException"/> is thrown. The target is roughly based on this version if it has
     /// the same Major.Minor.Patch or any valid increment (Major+1.0.0, Major.Minor+1.0 or Major.Minor.Patch+1).
+    /// <summary>
+    /// Gets whether this version is a "rough base" of the other one. This version MUST be <see cref="SVersion.IsStable"/> otherwise
+    /// an <see cref="InvalidOperationException"/> is thrown. The other is roughly based on this version if it has
+    /// the same Major.Minor.Patch (see <see cref="SameStableAs(SVersion)"/>) or any valid increment (Major+1.0.0, Major.Minor+1.0 or Major.Minor.Patch+1).
     /// <para>
     /// This accepts any prerelease of this version and any version that immediately follow this version, including their prereleases,
     /// so this accepts any "post release" of this version (with the double dash trick).
     /// </para>
-    /// <para>
-    /// This is used by the fake version:
+    /// This extends the <see cref="SameStableAs(SVersion)"/> to allow the valid Semantic Versioning release number increments.
     /// <list type="bullet">
     ///     <item>
-    ///         For CI build versions: "1.0.0" is a rough base of "1.0.0--ci.1" (that is
-    ///         an artificial CI build version that is used only for fake versions) and real CI build like 1.0.1--ci.0, 1.1.0--ci.4 or 2.0.0--ci.4.
+    ///         For CI build versions: "1.0.0" is a rough base of "1.0.0--ci.1" (although this CI version is smaller than "1.0.0") and real CI build
+    ///         like 1.0.1--ci.0, 1.1.0--ci.4 or 2.0.0--ci.4.
     ///     </item>
     ///     <item>
     ///         For regular versions: "1.0.0" is a rough base of itself, of any of its prelease versions like "1.0.0-any", of its successors "1.0.1",
     ///         "1.1.0", "2.0.0" and any of their prereleases.
     ///     </item>
     /// </list>
-    /// </para>
+    /// See also <see cref="IsPreviousVersionNumbersOf(SVersion, out SVersionChange)"/> and <see cref="SetNextVersionNumbers(SVersionChange)"/>.
     /// </summary>
-    /// <param name="version">This stable version.</param>
-    /// <param name="target">The target that may be roughly based on this stable version.</param>
-    /// <returns></returns>
-    public bool IsStableRoughBaseOf( SVersion target )
+    /// <param name="other">The other version that may be roughly based on this stable version.</param>
+    /// <returns>True if this version is a rough base of the other one.</returns>
+    public bool IsStableRoughBaseOf( SVersion other )
     {
+        ArgumentNullException.ThrowIfNull( other );
         if( !IsStable ) throw new InvalidOperationException( $"Version '{_toString}' must be stable." );
-        if( _major == target._major )
+        if( _major == other._major )
         {
-            return _minor == target._minor
-                    ? _patch == target._patch || _patch == target._patch - 1
-                    : _minor == target._minor - 1 && target._patch == 0;
+            return _minor == other._minor
+                    ? _patch == other._patch || _patch == other._patch - 1
+                    : _minor == other._minor - 1 && other._patch == 0;
         }
-        return _major == target._major - 1 && target._minor == 0 && target._patch == 0;
+        return _major == other._major - 1 && other._minor == 0 && other._patch == 0;
     }
 
     /// <summary>

@@ -46,6 +46,7 @@ public partial class SVersion
     /// <para>
     /// Only Major, Minor and Patch numbers are used. <see cref="Prerelease"/> is ignored.
     /// </para>
+    /// See also <see cref="SetNextVersionNumbers(SVersionChange)"/>.
     /// </summary>
     /// <param name="next">The next version.</param>
     /// <param name="change">The version change between this and the next one.</param>

@@ -13,6 +13,8 @@ In the "Conformant SVersion" subset, "post releases" are correctly handled, the 
 (including automated CI version) is formally defined, and one can reason about versions: any version
 has a set of possible next (and previous) versions.
 
+## Definition of a Conformant SVersion
+
 To be "conformant", a SVersion is either:
 - A stable version (no prelease): `0.0.0`, `1.2.3`, etc.
 - A prerelease named with one of the 26 letters of the https://en.wikipedia.org/wiki/NATO_phonetic_alphabet,
@@ -39,8 +41,31 @@ To be "conformant", a SVersion is either:
       - It is `1.2.3-alpha.0.ci.42` after `1.2.3-alpha`,
       - and `0.0.0-0.explo.0.ci.42` after `0.0.0-0.explo`.
 
-The [`CSVersionKind`](CSVersionKind.cs) enumeration models the different kind of Conformant SVersion, and
-`SVersion.IsCI`, `SVersion.CINumber` (and `SVersion.SetCINumber()` immutable updater) handle Conformant CI versions.
+### The SVersion and CSVersionKind
+
+The SVersion is an immutable class that handles any version that conforms to http://semver.org/ v2.0.0 with the addition of:
+- Always allow a 'v' prefix when parsing. 
+- Opt-in support for a `SVersion.ParsedPrefix`: `SVersion.Parse( "local/v1.2.3", allowPrefix: true )` is valid.
+- An optional `SVersion.FourthPart`: `SVersion.Parse( "v1.2.3.4-pre" )` is valid.
+
+The [`CSVersionKind`](CSVersionKind.cs) enumeration models the different kind of Conformant SVersion.
+
+A "Conformant SVersion" has its `SVersion.VersionKind != CSVersionKind.None` and some properties
+or methods only apply to "Conformant SVersion" like `IsCI`, `CINumber` (and `SetCINumber()` immutable
+updater), `PrereleaseNumber`/`SetNextVersionNumbers`, `ExploratoryName`/`SetExploratoryName`,
+`BranchName`/`SetBranchName`.
+
+### Special metadata: +fake, +deprecated and +invalid 
+
+Any `SVersion` handles 3 specific build metadata: *+fake*, *+deprecated* and *+invalid*  
+exposed as Boolean properties `HasFakeMetadata`, `HasDeprecatedMetadata` and `HasInvalidMetadata`.
+
+A valid "Conformant SVersion" ensures that:
+ - At most one among `HasFakeMetadata`, `HasDeprecatedMetadata` and `HasInvalidMetadata` can be true.
+ - *+fake* only apply to `Stable` versions.
+ - A CI version (`IsCI` is true) cannot be a *+fake* or *+deprecated* (but can be *+invalid*).
+
+Noting prevents a Conformant SVersion to have `SVersion.BuildMetaData` any other value.
 
 ## Version ranges, NuGet and Npm support.
 Versions are useless without **Version Ranges**. Nothing is simple in this domain: see 
@@ -69,6 +94,7 @@ Projections and parsing are what they are and can certainly be discussed and enh
 
 A (theoretically) important thing that is currently missing is a `SVersionBoundFormula` that would be a logical proposition of more than one `SVersionBound`
 connected by `or`, `and` (and even `not`) operators to express complex and composite bounds. In practice this is useless.
+
 
 ## Version filters.
 The [`CSVersionKindFilter`](CSVersionKindFilter.cs) is a basic filter that can be used to route (accepts/rejects) packages to feeds.

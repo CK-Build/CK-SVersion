@@ -37,7 +37,7 @@ namespace CK.Core;
 /// <list type="bullet">
 ///     <item>
 ///     At most one among <see cref="SVersion.HasFakeMetadata"/>, <see cref="SVersion.HasDeprecatedMetadata"/>
-///     and <see cref="SVersion.HasInvalidMetadata"/> must be true.
+///     and <see cref="SVersion.HasInvalidMetadata"/> can be true.
 ///     </item>
 ///     <item>
 ///     Only <see cref="CSVersionKind.Stable"/> versions can be "+fake" versions.
