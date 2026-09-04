@@ -6,6 +6,10 @@ namespace CK.Core;
 /// <summary>
 /// Defines a filter for version that relies on the <see cref="CSVersionKind"/> and the CI build indicator.
 /// <para>
+/// The <c>default</c> accepts everything and there is no filter that rejects everything: a null nullable filter should be used for
+/// the "reject all" case.
+/// </para>
+/// <para>
 /// <list type="bullet">
 ///     <item><c>[,],AllowCI</c><term></term>
 ///     <description>
