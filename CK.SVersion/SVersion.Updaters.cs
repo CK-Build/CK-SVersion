@@ -376,7 +376,7 @@ public partial class SVersion
     /// </summary>
     /// <param name="name">The exploratory name, without its "explo/" prefix.</param>
     /// <returns>True if the name is reserved and must be refused.</returns>
-    internal static bool IsReservedExploratoryName( ReadOnlySpan<char> name )
+    public static bool IsReservedExploratoryName( ReadOnlySpan<char> name )
     {
         return name.EndsWith( "-ci", StringComparison.OrdinalIgnoreCase )
                || name.StartsWith( "ci-", StringComparison.OrdinalIgnoreCase );
