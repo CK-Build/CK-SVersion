@@ -353,6 +353,52 @@ public class SVersionTests
         Should.Throw<InvalidOperationException>( () => SVersion.Parse( "1.2.3-a" ).SetExploratoryName( "feat" ) );
     }
 
+    /// <summary>
+    /// A branch name is qualified with a "-ci" suffix to tell its CI builds from its regular versions, so
+    /// an exploratory name - the only branch name that is free, since "alpha" to "zulu" are fixed and by
+    /// design cannot collide - must not be able to spell one: "explo/spike-ci" and the CI line of
+    /// "explo/spike" would be the same name.
+    /// </summary>
+    [TestCase( "spike-ci" )]
+    [TestCase( "ci-spike" )]
+    [TestCase( "SPIKE-CI" )]
+    [TestCase( "CI-SPIKE" )]
+    [TestCase( "-ci" )]
+    [TestCase( "ci-" )]
+    public void an_exploratory_name_cannot_be_confused_with_a_ci_line( string name )
+    {
+        var v = SVersion.Parse( "0.0.0-0.explo" );
+
+        Should.Throw<ArgumentException>( () => v.SetExploratoryName( name ) )
+              .Message.ShouldStartWith( """Exploratory name must not start with "ci-" nor end with "-ci".""" );
+        Should.Throw<ArgumentException>( () => v.SetExploratoryName( "explo/" + name ) );
+
+        // The parser refuses it too, otherwise the rule would be one SVersion.Parse away from being void.
+        SVersion.TryParse( $"0.0.0-0.{name}", out var parsed, mustBeCSVersion: true ).ShouldBeFalse();
+        parsed.ErrorMessage.ShouldBe( """Invalid Exploratory CSVersion: name must not start with "ci-" nor end with "-ci".""" );
+
+        // Without mustBeCSVersion it stays a valid SVersion, simply not a Conformant one.
+        var loose = SVersion.Parse( $"0.0.0-0.{name}" );
+        loose.VersionKind.ShouldBe( CSVersionKind.None );
+        loose.IsCSVersion.ShouldBeFalse();
+    }
+
+    /// <summary>
+    /// The rule is about the whole name: "ci" alone, or a name that merely contains "-ci-", is fine.
+    /// </summary>
+    [TestCase( "ci" )]
+    [TestCase( "spike-ci-2" )]
+    [TestCase( "cix" )]
+    [TestCase( "xci" )]
+    public void an_exploratory_name_that_only_looks_like_a_ci_line_is_valid( string name )
+    {
+        var v = SVersion.Parse( "0.0.0-0.explo" ).SetExploratoryName( name );
+
+        v.VersionKind.ShouldBe( CSVersionKind.Exploratory );
+        v.ExploratoryName.ToString().ShouldBe( name );
+        SVersion.Parse( $"0.0.0-0.{name}", mustBeCSVersion: true ).ShouldBe( v );
+    }
+
     [TestCase( "0.0.0-0.explo", CSVersionKind.Alpha, "0.0.0-alpha" )]          // PrereleaseNumber=0
     [TestCase( "0.0.0-0.explo.3", CSVersionKind.Alpha, "0.0.0-alpha.3" )]
     [TestCase( "0.0.0-0.explo.3.ci.5", CSVersionKind.Alpha, "0.0.0-alpha.3.ci.5" )]

@@ -354,8 +354,32 @@ public partial class SVersion
             throw new ArgumentException( nameError, nameof( name ) );
         if( !name.AsSpan().ContainsAnyExcept( "0123456789" ) )
             throw new ArgumentException( "Exploratory name must not be purely numeric.", nameof( name ) );
+        if( IsReservedExploratoryName( name.AsSpan() ) )
+            throw new ArgumentException( $"Exploratory name {ReservedExploratoryNameError}", nameof( name ) );
 
         return SetConformantData( CSVersionKind.Exploratory, name, _csPrereleaseNumber, _ciNumber );
+    }
+
+    // The tail of both messages: SetExploratoryName prefixes it with "Exploratory name " and the parser
+    // with "Invalid Exploratory CSVersion: name ".
+    internal const string ReservedExploratoryNameError = """must not start with "ci-" nor end with "-ci".""";
+
+    /// <summary>
+    /// Gets whether an exploratory name is reserved: it starts with "ci-" or ends with "-ci".
+    /// <para>
+    /// A "-ci" suffix qualifies a branch name to distinguish its CI builds from its regular versions.
+    /// An exploratory branch is the only one whose name is free - the standard prerelease names
+    /// ("alpha" to "zulu") are fixed and, by design, none of them can collide - so this is the only
+    /// place the ambiguity can arise: "explo/spike-ci" and the CI line of "explo/spike" would be the
+    /// same name.
+    /// </para>
+    /// </summary>
+    /// <param name="name">The exploratory name, without its "explo/" prefix.</param>
+    /// <returns>True if the name is reserved and must be refused.</returns>
+    internal static bool IsReservedExploratoryName( ReadOnlySpan<char> name )
+    {
+        return name.EndsWith( "-ci", StringComparison.OrdinalIgnoreCase )
+               || name.StartsWith( "ci-", StringComparison.OrdinalIgnoreCase );
     }
 
     /// <summary>

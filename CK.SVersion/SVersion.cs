@@ -718,7 +718,8 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
                     //    And when count = 3, then the PrereleaseNumber cannot be 0 ("-0.XXX.0" is not a CSVersion).
                     if( captures.Count is 2 or 3 or 5 )
                     {
-                        if( captures[1].ValueSpan.ContainsAnyExcept( "0123456789" ) )
+                        if( captures[1].ValueSpan.ContainsAnyExcept( "0123456789" )
+                            && !IsReservedExploratoryName( captures[1].ValueSpan ) )
                         {
                             kind = CSVersionKind.Exploratory;
                             if( captures.Count > 2 )
@@ -736,7 +737,10 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
                         }
                         else if( mustBeCSVersion )
                         {
-                            return new SVersion( "Invalid Exploratory CSVersion: name must not be only numeric.", parsedText );
+                            return new SVersion( captures[1].ValueSpan.ContainsAnyExcept( "0123456789" )
+                                                    ? "Invalid Exploratory CSVersion: name " + ReservedExploratoryNameError
+                                                    : "Invalid Exploratory CSVersion: name must not be only numeric.",
+                                                 parsedText );
                         }
                     }
                     else if( mustBeCSVersion )
