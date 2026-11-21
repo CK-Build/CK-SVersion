@@ -1004,6 +1004,10 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
     /// Compares this with another <see cref="SVersion"/>.
     /// Null is lower than any version. An invalid version is lower than any valid version.
     /// This (and the overloaded comparison operators) compares Semantic Version form according to the SemVer 2.0 specification.
+    /// <para>
+    /// The non standard <see cref="FourthPart"/> is compared after the <see cref="Patch"/> and before the
+    /// <see cref="Prerelease"/>: a version without it is lower than the same one with it ("1.2.3" &lt; "1.2.3.0").
+    /// </para>
     /// </summary>
     /// <param name="other">
     /// The other version to compare with this instance. Can be null (null is lower than any version).
@@ -1029,6 +1033,11 @@ public partial class SVersion : IEquatable<SVersion>, IComparable<SVersion>
         if( r != 0 ) return r;
 
         r = _patch - other._patch;
+        if( r != 0 ) return r;
+
+        // The non standard FourthPart comes before the prerelease: an absent one (-1) is lower than
+        // any other (like System.Version's Revision), which is consistent with Equals (1.2.3 != 1.2.3.0).
+        r = _fourthPart - other._fourthPart;
         if( r != 0 ) return r;
 
         return ComparePrerelease( _prerelease, other._prerelease );

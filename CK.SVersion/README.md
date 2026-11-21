@@ -47,6 +47,11 @@ The SVersion is an immutable class that handles any version that conforms to htt
 - Always allow a 'v' prefix when parsing. 
 - Opt-in support for a `SVersion.ParsedPrefix`: `SVersion.Parse( "local/v1.2.3", allowPrefix: true )` is valid.
 - An optional `SVersion.FourthPart`: `SVersion.Parse( "v1.2.3.4-pre" )` is valid.
+  It is compared after the Patch and before the prerelease, an absent one being lower than any
+  other: `1.2.3` < `1.2.3.0` < `1.2.3.1-pre` < `1.2.3.1` < `1.2.4`. A four-part version is never a
+  Conformant SVersion.
+  - **NuGet differs**: NuGet treats `1.2.3` and `1.2.3.0` as the same version, whereas they are different
+    (and ordered) SVersions.
 
 The [`CSVersionKind`](CSVersionKind.cs) enumeration models the different kind of Conformant SVersion.
 

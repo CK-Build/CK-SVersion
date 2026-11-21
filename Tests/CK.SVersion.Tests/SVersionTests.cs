@@ -142,6 +142,18 @@ public class SVersionTests
     [TestCase( "v0.0.0-0.explo.1", '<', "0.0.0-0.explo.1.ci.0" )]
     [TestCase( "v0.0.0-0.explo.1.ci.0", '<', "0.0.0-0.explo.2" )]
 
+    // The FourthPart counts, after the Patch and before the Prerelease: an absent one (-1) is lower than any
+    // other, like System.Version's Revision. This is consistent with Equals (1.2.3 is not 1.2.3.0).
+    [TestCase( "1.2.3.0", '<', "1.2.3.1" )]
+    [TestCase( "1.2.3.9", '<', "1.2.3.10" )]
+    [TestCase( "1.2.3.4", '=', "1.2.3.4+meta" )]
+    [TestCase( "1.2.3", '<', "1.2.3.0" )]
+    [TestCase( "1.2.3.99", '<', "1.2.4" )]
+    [TestCase( "1.2.3.99", '<', "1.2.4.0" )]
+    [TestCase( "1.2.3.0-alpha", '<', "1.2.3.0" )]
+    [TestCase( "1.2.3.0", '<', "1.2.3.1-alpha" )]
+    [TestCase( "1.2.3-alpha", '<', "1.2.3.0-alpha" )]
+
     public void comparison_operators( string left, char op, string right )
     {
         SVersion? vL = left != null ? SVersion.ParseNoThrow( left, allowTrailingSuffix: true ) : null;
